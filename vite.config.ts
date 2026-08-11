@@ -3,9 +3,10 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
-// base: 生产构建走 GitHub Pages 子路径 /pvzh-webapp/;本地 dev 保持 /(方便 iPad 局域网直连)。
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/pvzh-webapp/' : '/',
+// base: 默认 /(Vercel + 本地 dev)。仅 GitHub Pages 构建走子路径 /pvzh-webapp/,
+// 由 CI 设 DEPLOY_TARGET=pages 触发。
+export default defineConfig(() => ({
+  base: process.env.DEPLOY_TARGET === 'pages' ? '/pvzh-webapp/' : '/',
   plugins: [react(), tailwindcss()],
   test: {
     environment: 'node',
