@@ -3,15 +3,14 @@ import { reduce, IllegalActionError } from '../../src/engine/reduce.ts';
 import { baseState, giveCard } from './helpers.ts';
 
 describe('phase machine (§5)', () => {
-  it('cycles ZOMBIE_PLAY → PLANT_PLAY → ZOMBIE_TRICKS → FIGHT → next turn', () => {
+  it('cycles ZOMBIE_PLAY → PLANT_PLAY → ZOMBIE_TRICKS → (auto fight) → next turn', () => {
     let s = baseState();
     expect(s.phase).toBe('ZOMBIE_PLAY');
     s = reduce(s, { type: 'ADVANCE_PHASE', side: 'zombie' });
     expect(s.phase).toBe('PLANT_PLAY');
     s = reduce(s, { type: 'ADVANCE_PHASE', side: 'plant' });
     expect(s.phase).toBe('ZOMBIE_TRICKS');
-    s = reduce(s, { type: 'ADVANCE_PHASE', side: 'zombie' });
-    expect(s.phase).toBe('FIGHT');
+    // 结束 tricks → 自动结算战斗 → 直接进入下一回合(bug#3 fix)
     s = reduce(s, { type: 'ADVANCE_PHASE', side: 'zombie' });
     expect(s.phase).toBe('ZOMBIE_PLAY');
     expect(s.turn).toBe(2);
@@ -20,10 +19,9 @@ describe('phase machine (§5)', () => {
   it('resources refresh to turn number each turn', () => {
     let s = baseState();
     expect(s.zombie.resource).toBe(0); // baseState 不跑 startTurn
-    // 手动推进一整回合 → startTurn 设资源 = turn
+    // 推进一整回合(3 次 advance,第 3 次自动结算战斗+进下一回合)
     s = reduce(s, { type: 'ADVANCE_PHASE', side: 'zombie' });
     s = reduce(s, { type: 'ADVANCE_PHASE', side: 'plant' });
-    s = reduce(s, { type: 'ADVANCE_PHASE', side: 'zombie' });
     s = reduce(s, { type: 'ADVANCE_PHASE', side: 'zombie' });
     expect(s.turn).toBe(2);
     expect(s.plant.resource).toBe(2);

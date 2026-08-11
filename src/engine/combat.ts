@@ -17,79 +17,72 @@ export function applyHeroDamage(
   // TODO(M3): if (_opts.isFighterHit) chargeBlockMeter(...);
 }
 
-// 对 defender 施加一次 combat 伤害(armored 减免、cantBeHurt 免伤、deadly 致死)。
-// 返回 defender 是否被摧毁。
-function dealCombatDamage(
-  state: GameState,
-  defenderLane: number,
-  defenderSide: Side,
-  rawAttack: number,
-  attacker: Fighter,
-): boolean {
-  const d = state.lanes[defenderLane][defenderSide];
-  if (!d) return false;
-
-  let dmg: number;
-  if (d.cantBeHurt) {
-    dmg = 0; // 免伤:combat 伤害归零(§7 讨论)
-  } else {
-    const armored = keywordValue(d.keywords, 'armored') ?? 0;
-    dmg = Math.max(0, rawAttack - armored);
-  }
-  if (dmg > 0) d.health -= dmg;
-
-  // deadly:任何 >0 combat 伤害即致死(§6)。cantBeHurt → dmg=0 → 不触发。
-  const deadlyKill = hasKeyword(attacker.keywords, 'deadly') && dmg > 0;
-  const destroyed = d.health <= 0 || deadlyKill;
-  if (destroyed) removeFighter(state, defenderLane, defenderSide);
-  return destroyed;
+// 命中后立即判定 hero 死亡(§6:某方 hero ≤0 立即结束,后续攻击不再结算)。
+function checkGameOver(state: GameState): boolean {
+  const pDead = state.plant.hero.hp <= 0;
+  const zDead = state.zombie.hero.hp <= 0;
+  if (!pDead && !zDead) return false;
+  state.phase = 'GAME_OVER';
+  // 逐次结算 → 先到 0 的先判;植物 hero 死 → 僵尸胜,反之亦然。
+  state.winner = pDead ? 'zombie' : 'plant';
+  return true;
 }
 
-// §6 单 fighter 攻击子程序。可被 frenzy bonus / Carried Away(M3)复用。
-// 返回是否摧毁了该 lane 对方 fighter。
-export function performAttack(state: GameState, side: Side, lane: number, _config: GameConfig): boolean {
+// 对 defender 施加一次 combat 伤害(armored 减免、cantBeHurt 免伤、deadly 致死)。
+// 不移除 defender(死亡在 lane 编排里统一结算,好让濒死者仍能反击)。
+// 返回 defender 是否应被摧毁(health≤0 或 deadly 命中)。
+function dealCombatDamage(defender: Fighter, rawAttack: number, attackerDeadly: boolean): boolean {
+  if (defender.cantBeHurt) return false; // 免伤 → 0 伤害 → deadly 也不触发
+  const armored = keywordValue(defender.keywords, 'armored') ?? 0;
+  const dmg = Math.max(0, rawAttack - armored);
+  if (dmg > 0) defender.health -= dmg;
+  return defender.health <= 0 || (attackerDeadly && dmg > 0);
+}
+
+// §6 单 fighter 攻击子程序(不移除任何 fighter)。可被 frenzy bonus / Carried Away(M3)复用。
+// 返回 { destroyedDefender } —— 该 lane 对方 fighter 是否应被摧毁。
+export function performAttack(
+  state: GameState,
+  side: Side,
+  lane: number,
+  _config: GameConfig,
+): { destroyedDefender: boolean } {
   const attacker = state.lanes[lane][side];
-  if (!attacker) return false;
+  if (!attacker) return { destroyedDefender: false };
   const enemy = otherSide(side);
   const atk = attacker.attack; // 攻击瞬间取当前值(§6)
+  const deadly = hasKeyword(attacker.keywords, 'deadly');
 
   // Bullseye:直击对方 hero,无视 lane,不触发对方 Block 充能(§7)
   if (hasKeyword(attacker.keywords, 'bullseye')) {
     applyHeroDamage(state, enemy, atk, { isFighterHit: false });
-    return false;
+    return { destroyedDefender: false };
   }
 
   // Strikethrough:同时命中对方 fighter 与 hero(§7)
   if (hasKeyword(attacker.keywords, 'strikethrough')) {
     let destroyed = false;
-    if (state.lanes[lane][enemy]) destroyed = dealCombatDamage(state, lane, enemy, atk, attacker);
-    applyHeroDamage(state, enemy, atk, { isFighterHit: true }); // 穿透 hero,充能
-    return destroyed;
+    const def = state.lanes[lane][enemy];
+    if (def) destroyed = dealCombatDamage(def, atk, deadly);
+    applyHeroDamage(state, enemy, atk, { isFighterHit: true });
+    return { destroyedDefender: destroyed };
   }
 
   // 普通:有对方 fighter 打 fighter,否则打 hero
-  if (state.lanes[lane][enemy]) {
-    return dealCombatDamage(state, lane, enemy, atk, attacker);
-  }
+  const def = state.lanes[lane][enemy];
+  if (def) return { destroyedDefender: dealCombatDamage(def, atk, deadly) };
   applyHeroDamage(state, enemy, atk, { isFighterHit: true });
-  return false;
+  return { destroyedDefender: false };
 }
 
-// 一次攻击尝试:处理 frozen(跳过并清除),否则执行 performAttack。
-function tryAttack(
-  state: GameState,
-  side: Side,
-  lane: number,
-  config: GameConfig,
-): { attacked: boolean; destroyedDefender: boolean } {
-  const f = state.lanes[lane][side];
-  if (!f) return { attacked: false, destroyedDefender: false };
+// frozen:跳过这次攻击并清除标记(§8)。返回该 fighter 本次是否行动。
+function consumeFrozen(f: Fighter | null): boolean {
+  if (!f) return false;
   if (f.frozen) {
-    f.frozen = false; // 跳过这次攻击后清除(§8 freeze)
-    return { attacked: false, destroyedDefender: false };
+    f.frozen = false;
+    return false;
   }
-  const destroyedDefender = performAttack(state, side, lane, config);
-  return { attacked: true, destroyedDefender };
+  return true;
 }
 
 // §5:FIGHT 开始翻开所有 gravestone,触发 onReveal。
@@ -104,31 +97,44 @@ function revealGravestones(state: GameState): void {
   }
 }
 
-// §6 逐 lane 结算:僵尸先攻(平局僵尸胜)→ 植物攻 → frenzy。
-function resolveLane(state: GameState, lane: number, config: GameConfig): void {
-  // STEP 1 — 僵尸先攻
-  const zStart = state.lanes[lane].zombie;
-  let destroyedPlant = false;
-  if (zStart) {
-    const r = tryAttack(state, 'zombie', lane, config);
-    destroyedPlant = r.destroyedDefender;
+// §6 逐 lane 结算:僵尸先攻 → 植物攻(濒死也反击)→ 结算死亡 → frenzy。
+// 每次命中 hero 后立即判定结束。返回是否已 game over(用于中断后续 lane)。
+function resolveLane(state: GameState, lane: number, config: GameConfig): boolean {
+  const Z = state.lanes[lane].zombie;
+  const P = state.lanes[lane].plant;
+  const zActs = consumeFrozen(Z);
+  const pActs = consumeFrozen(P);
+
+  // STEP 1 — 僵尸攻击(伤害已落,但先不移除,好让濒死植物仍能反击)
+  let plantDestroyed = false;
+  if (zActs && Z) {
+    plantDestroyed = performAttack(state, 'zombie', lane, config).destroyedDefender;
+    if (checkGameOver(state)) return true;
   }
 
-  // STEP 2 — 植物攻(若 STEP1 后仍在场且未被跳过)
-  if (state.lanes[lane].plant) {
-    tryAttack(state, 'plant', lane, config);
+  // STEP 2 — 植物攻击(即便 STEP1 已致其死亡,仍造成伤害)
+  let zombieDestroyed = false;
+  if (pActs && P) {
+    zombieDestroyed = performAttack(state, 'plant', lane, config).destroyedDefender;
+    if (checkGameOver(state)) return true;
   }
+
+  // STEP 3 — 统一结算死亡
+  if (P && (P.health <= 0 || plantDestroyed)) removeFighter(state, lane, 'plant');
+  if (Z && (Z.health <= 0 || zombieDestroyed)) removeFighter(state, lane, 'zombie');
 
   // STEP 4 — Frenzy(僵尸专属):存活 + 本 lane 摧毁了植物 → bonus attack 打脸
-  const z = state.lanes[lane].zombie;
-  if (z && hasKeyword(z.keywords, 'frenzy') && destroyedPlant) {
+  const zNow = state.lanes[lane].zombie;
+  if (zNow && hasKeyword(zNow.keywords, 'frenzy') && plantDestroyed && zActs) {
     performAttack(state, 'zombie', lane, config); // lane 已清空 → 直击 plantHero
+    if (checkGameOver(state)) return true;
   }
+  return false;
 }
 
 export function resolveFight(state: GameState, config: GameConfig): void {
   revealGravestones(state);
   for (let l = 0; l < state.lanes.length; l++) {
-    resolveLane(state, l, config);
+    if (resolveLane(state, l, config)) return; // 某方 hero 死亡 → 立即停止
   }
 }

@@ -120,14 +120,8 @@ function canPlayTrick(side: Side, phase: Phase): boolean {
 }
 
 function endTurn(state: GameState, config: GameConfig): void {
-  resolveFight(state, config);
-  const pDead = state.plant.hero.hp <= 0;
-  const zDead = state.zombie.hero.hp <= 0;
-  if (pDead || zDead) {
-    state.phase = 'GAME_OVER';
-    state.winner = pDead && zDead ? 'zombie' : pDead ? 'zombie' : 'plant'; // 平局僵尸胜(§6)
-    return;
-  }
+  resolveFight(state, config); // 命中 hero 致死时内部已设 winner + GAME_OVER
+  if (state.winner) return;
   startTurn(state, config, state.turn + 1);
 }
 
@@ -237,7 +231,9 @@ function advancePhase(
       state.phase = 'ZOMBIE_TRICKS';
       return;
     case 'ZOMBIE_TRICKS':
+      // 结束僵尸 trick → 立即结算战斗并进入下一回合(自动,无需再点)
       state.phase = 'FIGHT';
+      endTurn(state, config);
       return;
     case 'FIGHT':
       endTurn(state, config);
