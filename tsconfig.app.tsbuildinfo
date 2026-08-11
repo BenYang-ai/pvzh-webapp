@@ -1,1 +1,1 @@
-{"root":["./src/config.ts","./src/main.tsx","./src/ui/app.tsx","./src/ui/board.tsx"],"version":"5.9.3"}
+{"root":["./src/config.ts","./src/main.tsx","./src/ui/app.tsx","./src/ui/board.tsx","./tests/smoke.test.ts"],"version":"5.9.3"}

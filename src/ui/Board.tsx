@@ -6,22 +6,22 @@ const LANES = Array.from({ length: DEFAULT_CONFIG.laneCount }, (_, i) => i);
 export function Board() {
   return (
     <div className="flex aspect-[4/3] max-h-full w-full max-w-[1024px] flex-col gap-2 rounded-xl bg-[#16241a] p-3 shadow-lg">
-      <HeroBar label="对方 Hero" side="enemy" />
+      <HeroBar label="Opponent" side="enemy" />
 
       <div className="flex flex-1 flex-col justify-center gap-2">
-        <LaneRow rowLabel="对方 fighter" />
-        <LaneRow rowLabel="己方 fighter" />
+        <LaneRow rowLabel="Opponent" />
+        <LaneRow rowLabel="You" />
       </div>
 
-      <HeroBar label="己方 Hero" side="self" showResource />
+      <HeroBar label="You" side="self" showResource />
 
       <div className="flex items-center justify-between rounded-lg bg-[#0f1a12] px-3 py-2 text-sm text-[#8fae95]">
-        <span>阶段:—</span>
+        <span>Phase: —</span>
         <button
           className="rounded-md bg-[#2e5a38] px-3 py-1 text-[#e8f0e8] opacity-50"
           disabled
         >
-          结束阶段 ▶
+          End phase ▶
         </button>
       </div>
     </div>
@@ -41,7 +41,7 @@ function HeroBar({
       <span className="font-semibold">{label}</span>
       <span className="rounded bg-[#3a1f1f] px-2 py-0.5 text-sm">HP {DEFAULT_CONFIG.heroStartHp}</span>
       <BlockMeter />
-      {showResource && <span className="ml-auto text-sm">资源:☀ 0</span>}
+      {showResource && <span className="ml-auto text-sm">Sun ☀ 0</span>}
     </div>
   );
 }
