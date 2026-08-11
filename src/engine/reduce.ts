@@ -12,6 +12,7 @@ import { getCard } from './cardpool.ts';
 import { buildDeck, makeFighter, hasKeyword } from './deck.ts';
 import { seedFromString, shuffle } from './rng.ts';
 import { applyEffects, drawCards, otherSide, player } from './effects.ts';
+import { resolveFight } from './combat.ts';
 
 export class IllegalActionError extends Error {}
 
@@ -116,11 +117,6 @@ function canPlayFighter(side: Side, phase: Phase): boolean {
 function canPlayTrick(side: Side, phase: Phase): boolean {
   if (side === 'plant') return phase === 'PLANT_PLAY';
   return phase === 'ZOMBIE_PLAY' || phase === 'ZOMBIE_TRICKS';
-}
-
-// —— FIGHT 结算:M2 实装。M1 占位(无战斗)——
-function resolveFight(_state: GameState, _config: GameConfig): void {
-  // TODO(M2): §6 逐 lane 战斗结算 + 关键词
 }
 
 function endTurn(state: GameState, config: GameConfig): void {
