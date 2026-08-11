@@ -43,13 +43,19 @@ export function CardFace({
   const hp = fighter ? fighter.health : card.health;
   const keywords = fighter ? fighter.keywords : card.keywords;
   const bg = card.art.placeholder.bg;
+  // 手绘扫描覆盖 emoji 占位(§11.4)。相对路径 → 加 BASE_URL 适配部署子路径。
+  const image = card.art.image ? `${import.meta.env.BASE_URL}${card.art.image}` : null;
 
   return (
     <div
       className={`relative flex h-full w-full flex-col justify-between rounded-md p-1 text-white shadow-sm ${
         compact ? 'text-[10px]' : 'text-xs'
       }`}
-      style={{ background: bg }}
+      style={
+        image
+          ? { backgroundImage: `url(${image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+          : { background: bg }
+      }
     >
       {/* cost 角标 */}
       {card.type === 'trick' || fighter === undefined ? (
@@ -65,14 +71,20 @@ export function CardFace({
         {fighter?.gravestone ? '🪦' : ''}
       </span>
 
-      <div className="flex items-center justify-center text-lg leading-none">
-        {card.art.placeholder.emoji}
+      {!image && (
+        <div className="flex items-center justify-center text-lg leading-none">
+          {card.art.placeholder.emoji}
+        </div>
+      )}
+      <div
+        className={`truncate text-center font-medium leading-tight ${image ? 'bg-black/50 rounded-sm' : ''}`}
+      >
+        {card.name}
       </div>
-      <div className="truncate text-center font-medium leading-tight">{card.name}</div>
       <div className="flex items-end justify-between">
-        <span className="font-bold text-amber-200">{atk ?? ''}</span>
+        <span className="rounded-sm bg-black/40 px-0.5 font-bold text-amber-200">{atk ?? ''}</span>
         <KeywordIcons keywords={keywords} />
-        <span className="font-bold text-red-200">{hp ?? ''}</span>
+        <span className="rounded-sm bg-black/40 px-0.5 font-bold text-red-200">{hp ?? ''}</span>
       </div>
     </div>
   );

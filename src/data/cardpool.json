@@ -117,6 +117,13 @@
       "type": "trick", "keywords": [], "classes": ["brainy"], "targeting": "friendlyFighter",
       "onPlay": [{ "kind": "shield", "target": "chosen" }],
       "art": { "placeholder": { "emoji": "🛡️", "bg": "#5a5a6a" }, "image": null }
+    },
+    "z_petrosaurus": {
+      "id": "z_petrosaurus", "name": "Petrosaurus", "faction": "zombie", "cost": 8,
+      "type": "fighter", "attack": 4, "health": 5,
+      "keywords": ["deadly", "frenzy", "armored:1"], "classes": ["beastly", "pet"],
+      "onPlay": [{ "kind": "shield", "target": "self" }],
+      "art": { "placeholder": { "emoji": "🦕", "bg": "#6a5a3a" }, "image": "cards/z_petrosaurus.jpg" }
     }
   },
   "decklists": {
@@ -134,7 +141,7 @@
       { "id": "p_forcefield", "copies": 2 }
     ],
     "zombie": [
-      { "id": "z_imp", "copies": 4 },
+      { "id": "z_imp", "copies": 2 },
       { "id": "z_basic", "copies": 4 },
       { "id": "z_conehead", "copies": 4 },
       { "id": "z_sneaky", "copies": 4 },
@@ -142,6 +149,7 @@
       { "id": "z_ninja", "copies": 4 },
       { "id": "z_capecod", "copies": 4 },
       { "id": "z_wizardgarg", "copies": 4 },
+      { "id": "z_petrosaurus", "copies": 2 },
       { "id": "z_nibble", "copies": 3 },
       { "id": "z_bounce", "copies": 3 },
       { "id": "z_ironcurtain", "copies": 2 }

@@ -61,6 +61,14 @@ interface EffectCtx {
   self?: Fighter;
 }
 
+function findFighterPosition(state: GameState, fighter: Fighter): { lane: number; side: Side } | null {
+  for (let l = 0; l < state.lanes.length; l++) {
+    if (state.lanes[l].plant === fighter) return { lane: l, side: 'plant' };
+    if (state.lanes[l].zombie === fighter) return { lane: l, side: 'zombie' };
+  }
+  return null;
+}
+
 function resolveTarget(
   state: GameState,
   ref: TargetRef,
@@ -68,7 +76,7 @@ function resolveTarget(
 ): { lane: number; side: Side } | null {
   if (ref === 'chosen') return ctx.chosen ?? null;
   if (ref === 'fixedLane2') return { lane: 2, side: otherSide(ctx.caster) };
-  if (ref === 'self') return null; // self 用于 hero 语境,由具体 effect 处理
+  if (ref === 'self') return ctx.self ? findFighterPosition(state, ctx.self) : null; // 打出者自身(ETB)
   if (ref === 'random') {
     const targets: Array<{ lane: number; side: Side }> = [];
     const enemy = otherSide(ctx.caster);
