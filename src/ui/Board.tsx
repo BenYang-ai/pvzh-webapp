@@ -29,7 +29,7 @@ function advanceLabel(phase: Phase): string {
     case 'PLANT_PLAY':
       return 'End plant play ▶';
     case 'ZOMBIE_TRICKS':
-      return 'End tricks ▶';
+      return 'End tricks & fight ⚔️';
     case 'FIGHT':
       return 'Resolve fight ⚔️';
     default:
