@@ -20,7 +20,7 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 - Leo's custom card **Petrosaurus** added + art pipeline live
 - Real card pool REBUILT with wiki-verified stats (PR #5, deck 30) — see "Real card pool — DONE"
 - **M3 ✅ superpowers + Super-Block Meter** (8 SPs, faithful/pick/off modes) — see "M3 — DONE"
-- M5 ⏳ NEXT: Supabase networking (room code, per-device view, sync)
+- **M5 🧪 code complete, NOT merged** — Supabase networking; awaiting live 2-device test on branch `feat/m5-networking` before PR. See "M5 — networking"
 - M6 ⏳ PWA + deploy polish
 - M7 ⏳ hand-drawn art takeover (pipeline already works via `art.image`)
 
@@ -86,6 +86,16 @@ Pool rebuilt with real PvZ Heroes stats from plantsvszombies.wiki.gg. Deck size 
 - After building, update combat/trick tests that reference specific card stats (many hard-code z_basic 3/2, wallnut armored:1, etc.).
 - All numbers stay in cardpool.json for family playtesting/tuning (§10.4).
 
+## M5 — networking (code complete, awaiting live test)
+Full setup + test plan: **`NETWORKING.md`**. Not merged yet — test on the branch first (`npm run dev --host`, 2 iPads, Supabase creds in `.env.local`); merging is NOT required to test.
+- **Sync model:** whole `GameState` in one Supabase row (`games` jsonb). Engine is deterministic → mover applies `reduce` locally, pushes state, other device adopts via realtime `postgres_changes`. `rev` (monotonic) de-dupes echoes; no replay logic.
+- **Env-gated:** `src/net/supabase.ts` `isNetworkEnabled()` = both `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` present. Missing → app runs local hot-seat only (safe fallback; deploy without creds is harmless).
+- Files: `src/net/supabase.ts` (client), `src/net/room.ts` (createRoom/fetchRoom/pushState/subscribeRoom), `src/ui/useNetworkGame.ts` (optimistic apply + subscribe), `src/ui/Lobby.tsx` (create/join + side pick), `src/ui/NetworkGame.tsx` + `src/ui/LocalGame.tsx` (Board wrappers), `src/ui/App.tsx` (menu/lobby/local/net router).
+- **Board is now presentational** (`BoardProps`: state/apply/error/viewSide/onNewGame/onLeave/banner). `viewSide` set = single-side view: opponent hand → card backs, opponent hidden gravestone → back, controls gated to `mine(side)`. `viewSide` undefined = god-view (M4 behavior, `LocalGame`).
+- Supabase table + RLS SQL is in `NETWORKING.md` §2. `@supabase/supabase-js` added to deps.
+- Tests: `serialization.test.ts` guards jsonb round-trip (no Map/Set/undefined). 64 green. (Transport itself needs the live service — not unit-tested.)
+- **TODO after live test passes:** open PR, squash-merge; add the two env vars to Vercel so the deployed site enables networking.
+
 ## Open decisions
-- `superblock.mode` default: currently `faithful` (random). User may prefer `pick` for kids — unconfirmed.
+- `superblock.mode` default `faithful` (random) — CONFIRMED by Ben (kids-pick not wanted).
 - Real-pool roster: user chose "research wiki + build". Keep current pool live until replacement is ready + tested.
