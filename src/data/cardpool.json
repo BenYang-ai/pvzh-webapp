@@ -1,122 +1,73 @@
 {
+  "_note": "Stats verified from plantsvszombies.wiki.gg (real PvZ Heroes). Some abilities simplified to v1 mechanics (splash/amphibious/conjure dropped). Green Shadow (plants) vs Super Brainz (zombies); v1 does not enforce class legality.",
   "cards": {
     "p_peashooter": {
       "id": "p_peashooter", "name": "Peashooter", "faction": "plant", "cost": 1,
-      "type": "fighter", "attack": 2, "health": 2, "keywords": [], "classes": ["mega-grow"],
-      "art": { "placeholder": { "emoji": "🌿", "bg": "#3a7d34" }, "image": null }
+      "type": "fighter", "attack": 1, "health": 1, "keywords": [], "classes": ["mega-grow"],
+      "art": { "placeholder": { "emoji": "🌱", "bg": "#3a7d34" }, "image": null }
     },
     "p_sunflower": {
       "id": "p_sunflower", "name": "Sunflower", "faction": "plant", "cost": 1,
-      "type": "fighter", "attack": 1, "health": 2, "keywords": [], "classes": ["mega-grow"],
+      "type": "fighter", "attack": 1, "health": 1, "keywords": [], "classes": ["solar"],
       "onPlay": [{ "kind": "rampResource", "amount": 1 }],
       "art": { "placeholder": { "emoji": "🌻", "bg": "#c9a227" }, "image": null }
     },
-    "p_cabbagepult": {
-      "id": "p_cabbagepult", "name": "Cabbage-pult", "faction": "plant", "cost": 2,
-      "type": "fighter", "attack": 3, "health": 2, "keywords": [], "classes": ["mega-grow"],
-      "art": { "placeholder": { "emoji": "🥬", "bg": "#4a8f3c" }, "image": null }
-    },
     "p_wallnut": {
-      "id": "p_wallnut", "name": "Wall-nut", "faction": "plant", "cost": 2,
-      "type": "fighter", "attack": 0, "health": 6, "keywords": ["armored:1"], "classes": ["mega-grow"],
+      "id": "p_wallnut", "name": "Wall-Nut", "faction": "plant", "cost": 1,
+      "type": "fighter", "attack": 0, "health": 6, "keywords": [], "classes": ["guardian"],
       "art": { "placeholder": { "emoji": "🌰", "bg": "#8a6a3a" }, "image": null }
+    },
+    "p_bonkchoy": {
+      "id": "p_bonkchoy", "name": "Bonk Choy", "faction": "plant", "cost": 1,
+      "type": "fighter", "attack": 2, "health": 1, "keywords": [], "classes": ["mega-grow"],
+      "art": { "placeholder": { "emoji": "🥬", "bg": "#5a9d3c" }, "image": null }
     },
     "p_cactus": {
       "id": "p_cactus", "name": "Cactus", "faction": "plant", "cost": 3,
-      "type": "fighter", "attack": 2, "health": 3, "keywords": ["bullseye"], "classes": ["smarty"],
+      "type": "fighter", "attack": 2, "health": 5, "keywords": ["bullseye"], "classes": ["guardian"],
       "art": { "placeholder": { "emoji": "🌵", "bg": "#3f7d4a" }, "image": null }
     },
-    "p_bonkchoy": {
-      "id": "p_bonkchoy", "name": "Bonk Choy", "faction": "plant", "cost": 3,
-      "type": "fighter", "attack": 4, "health": 3, "keywords": [], "classes": ["mega-grow"],
-      "art": { "placeholder": { "emoji": "🥬", "bg": "#5a9d3c" }, "image": null }
-    },
-    "p_threepeater": {
-      "id": "p_threepeater", "name": "Threepeater", "faction": "plant", "cost": 4,
-      "type": "fighter", "attack": 3, "health": 4, "keywords": ["strikethrough"], "classes": ["mega-grow"],
-      "art": { "placeholder": { "emoji": "🌿", "bg": "#2f6d34" }, "image": null }
-    },
     "p_snapdragon": {
-      "id": "p_snapdragon", "name": "Snapdragon", "faction": "plant", "cost": 5,
-      "type": "fighter", "attack": 4, "health": 5, "keywords": ["deadly"], "classes": ["mega-grow"],
+      "id": "p_snapdragon", "name": "Snapdragon", "faction": "plant", "cost": 4,
+      "type": "fighter", "attack": 3, "health": 3, "keywords": [], "classes": ["smarty"],
       "art": { "placeholder": { "emoji": "🐲", "bg": "#8a3a3a" }, "image": null }
     },
+    "p_bloomerang": {
+      "id": "p_bloomerang", "name": "Bloomerang", "faction": "plant", "cost": 4,
+      "type": "fighter", "attack": 3, "health": 5, "keywords": ["strikethrough"], "classes": ["solar"],
+      "art": { "placeholder": { "emoji": "🌼", "bg": "#b8860b" }, "image": null }
+    },
     "p_cherrybomb": {
-      "id": "p_cherrybomb", "name": "Cherry Bomb", "faction": "plant", "cost": 3,
-      "type": "trick", "keywords": [], "classes": ["mega-grow"], "targeting": "enemyFighter",
+      "id": "p_cherrybomb", "name": "Cherry Bomb", "faction": "plant", "cost": 6,
+      "type": "trick", "keywords": [], "classes": ["kabloom"], "targeting": "enemyFighter",
       "onPlay": [{ "kind": "damage", "amount": 4, "target": "chosen" }],
       "art": { "placeholder": { "emoji": "🍒", "bg": "#a12727" }, "image": null }
-    },
-    "p_fertilize": {
-      "id": "p_fertilize", "name": "Fertilize", "faction": "plant", "cost": 1,
-      "type": "trick", "keywords": [], "classes": ["mega-grow"], "targeting": "friendlyFighter",
-      "onPlay": [{ "kind": "buff", "attack": 1, "health": 1, "target": "chosen" }],
-      "art": { "placeholder": { "emoji": "💩", "bg": "#6a5a2a" }, "image": null }
-    },
-    "p_forcefield": {
-      "id": "p_forcefield", "name": "Force Field", "faction": "plant", "cost": 2,
-      "type": "trick", "keywords": [], "classes": ["smarty"], "targeting": "friendlyFighter",
-      "onPlay": [{ "kind": "shield", "target": "chosen" }],
-      "art": { "placeholder": { "emoji": "🛡️", "bg": "#2f6a7d" }, "image": null }
     },
 
     "z_imp": {
       "id": "z_imp", "name": "Imp", "faction": "zombie", "cost": 1,
-      "type": "fighter", "attack": 2, "health": 1, "keywords": [], "classes": ["sneaky"],
+      "type": "fighter", "attack": 1, "health": 1, "keywords": [], "classes": ["sneaky"],
       "art": { "placeholder": { "emoji": "👿", "bg": "#6a3a7d" }, "image": null }
-    },
-    "z_basic": {
-      "id": "z_basic", "name": "Basic Zombie", "faction": "zombie", "cost": 2,
-      "type": "fighter", "attack": 3, "health": 2, "keywords": [], "classes": ["brainy"],
-      "art": { "placeholder": { "emoji": "🧟", "bg": "#5a6a3a" }, "image": null }
     },
     "z_conehead": {
       "id": "z_conehead", "name": "Conehead Zombie", "faction": "zombie", "cost": 2,
-      "type": "fighter", "attack": 3, "health": 4, "keywords": ["armored:1"], "classes": ["brainy"],
+      "type": "fighter", "attack": 2, "health": 2, "keywords": ["armored:1"], "classes": ["hearty"],
       "art": { "placeholder": { "emoji": "🚧", "bg": "#8a5a2a" }, "image": null }
     },
-    "z_sneaky": {
-      "id": "z_sneaky", "name": "Sneaky Zombie", "faction": "zombie", "cost": 2,
-      "type": "fighter", "attack": 4, "health": 2, "keywords": ["gravestone"], "classes": ["sneaky"],
-      "art": { "placeholder": { "emoji": "🪦", "bg": "#3a3a4a" }, "image": null }
+    "z_smelly": {
+      "id": "z_smelly", "name": "Smelly Zombie", "faction": "zombie", "cost": 3,
+      "type": "fighter", "attack": 2, "health": 4, "keywords": ["gravestone", "deadly"], "classes": ["sneaky"],
+      "art": { "placeholder": { "emoji": "🪰", "bg": "#4a5a2a" }, "image": null }
     },
-    "z_toxicimp": {
-      "id": "z_toxicimp", "name": "Toxic Imp", "faction": "zombie", "cost": 3,
-      "type": "fighter", "attack": 2, "health": 2, "keywords": ["deadly"], "classes": ["sneaky"],
-      "art": { "placeholder": { "emoji": "☠️", "bg": "#4a7d3a" }, "image": null }
+    "z_vimpire": {
+      "id": "z_vimpire", "name": "Vimpire", "faction": "zombie", "cost": 3,
+      "type": "fighter", "attack": 2, "health": 3, "keywords": ["frenzy"], "classes": ["beastly"],
+      "art": { "placeholder": { "emoji": "🧛", "bg": "#5a2a3a" }, "image": null }
     },
-    "z_ninja": {
-      "id": "z_ninja", "name": "Zombie Ninja", "faction": "zombie", "cost": 3,
-      "type": "fighter", "attack": 4, "health": 2, "keywords": ["frenzy"], "classes": ["sneaky"],
-      "art": { "placeholder": { "emoji": "🥷", "bg": "#2a2a3a" }, "image": null }
-    },
-    "z_capecod": {
-      "id": "z_capecod", "name": "Cape Cod Squad", "faction": "zombie", "cost": 4,
-      "type": "fighter", "attack": 5, "health": 3, "keywords": [], "classes": ["brainy"],
-      "art": { "placeholder": { "emoji": "🦸", "bg": "#7d3a5a" }, "image": null }
-    },
-    "z_wizardgarg": {
-      "id": "z_wizardgarg", "name": "Wizard Gargantuar", "faction": "zombie", "cost": 5,
-      "type": "fighter", "attack": 6, "health": 6, "keywords": ["bullseye"], "classes": ["brainy"],
-      "art": { "placeholder": { "emoji": "🧙", "bg": "#4a2a6a" }, "image": null }
-    },
-    "z_nibble": {
-      "id": "z_nibble", "name": "Nibble", "faction": "zombie", "cost": 2,
-      "type": "trick", "keywords": [], "classes": ["sneaky"], "targeting": "enemyFighter",
-      "onPlay": [{ "kind": "damage", "amount": 3, "target": "chosen" }],
-      "art": { "placeholder": { "emoji": "🦠", "bg": "#7d5a2a" }, "image": null }
-    },
-    "z_bounce": {
-      "id": "z_bounce", "name": "Backyard Bounce", "faction": "zombie", "cost": 3,
-      "type": "trick", "keywords": [], "classes": ["sneaky"], "targeting": "enemyFighter",
-      "onPlay": [{ "kind": "bounce", "target": "chosen" }],
-      "art": { "placeholder": { "emoji": "🏀", "bg": "#7d6a2a" }, "image": null }
-    },
-    "z_ironcurtain": {
-      "id": "z_ironcurtain", "name": "Iron Curtain", "faction": "zombie", "cost": 2,
-      "type": "trick", "keywords": [], "classes": ["brainy"], "targeting": "friendlyFighter",
-      "onPlay": [{ "kind": "shield", "target": "chosen" }],
-      "art": { "placeholder": { "emoji": "🛡️", "bg": "#5a5a6a" }, "image": null }
+    "z_spacecowboy": {
+      "id": "z_spacecowboy", "name": "Space Cowboy", "faction": "zombie", "cost": 4,
+      "type": "fighter", "attack": 3, "health": 5, "keywords": ["strikethrough"], "classes": ["sneaky"],
+      "art": { "placeholder": { "emoji": "🤠", "bg": "#3a4a7d" }, "image": null }
     },
     "z_petrosaurus": {
       "id": "z_petrosaurus", "name": "Petrosaurus", "faction": "zombie", "cost": 8,
@@ -124,35 +75,40 @@
       "keywords": ["deadly", "frenzy", "armored:1"], "classes": ["beastly", "pet"],
       "onPlay": [{ "kind": "shield", "target": "self" }],
       "art": { "placeholder": { "emoji": "🦕", "bg": "#6a5a3a" }, "image": "cards/z_petrosaurus.jpg" }
+    },
+    "z_nibble": {
+      "id": "z_nibble", "name": "Nibble", "faction": "zombie", "cost": 1,
+      "type": "trick", "keywords": [], "classes": ["beastly"], "targeting": "enemyFighter",
+      "onPlay": [{ "kind": "buff", "attack": -1, "health": -1, "target": "chosen" }],
+      "art": { "placeholder": { "emoji": "🦠", "bg": "#7d5a2a" }, "image": null }
+    },
+    "z_bounce": {
+      "id": "z_bounce", "name": "Backyard Bounce", "faction": "zombie", "cost": 3,
+      "type": "trick", "keywords": [], "classes": ["sneaky"], "targeting": "enemyFighter",
+      "onPlay": [{ "kind": "bounce", "target": "chosen" }],
+      "art": { "placeholder": { "emoji": "🏀", "bg": "#7d6a2a" }, "image": null }
     }
   },
   "decklists": {
     "plant": [
       { "id": "p_peashooter", "copies": 4 },
-      { "id": "p_sunflower", "copies": 4 },
-      { "id": "p_cabbagepult", "copies": 4 },
+      { "id": "p_bonkchoy", "copies": 4 },
       { "id": "p_wallnut", "copies": 4 },
       { "id": "p_cactus", "copies": 4 },
-      { "id": "p_bonkchoy", "copies": 4 },
-      { "id": "p_threepeater", "copies": 4 },
+      { "id": "p_bloomerang", "copies": 4 },
       { "id": "p_snapdragon", "copies": 4 },
-      { "id": "p_cherrybomb", "copies": 3 },
-      { "id": "p_fertilize", "copies": 3 },
-      { "id": "p_forcefield", "copies": 2 }
+      { "id": "p_sunflower", "copies": 3 },
+      { "id": "p_cherrybomb", "copies": 3 }
     ],
     "zombie": [
-      { "id": "z_imp", "copies": 2 },
-      { "id": "z_basic", "copies": 4 },
+      { "id": "z_imp", "copies": 4 },
       { "id": "z_conehead", "copies": 4 },
-      { "id": "z_sneaky", "copies": 4 },
-      { "id": "z_toxicimp", "copies": 4 },
-      { "id": "z_ninja", "copies": 4 },
-      { "id": "z_capecod", "copies": 4 },
-      { "id": "z_wizardgarg", "copies": 4 },
-      { "id": "z_petrosaurus", "copies": 2 },
-      { "id": "z_nibble", "copies": 3 },
-      { "id": "z_bounce", "copies": 3 },
-      { "id": "z_ironcurtain", "copies": 2 }
+      { "id": "z_smelly", "copies": 4 },
+      { "id": "z_vimpire", "copies": 4 },
+      { "id": "z_spacecowboy", "copies": 4 },
+      { "id": "z_nibble", "copies": 4 },
+      { "id": "z_bounce", "copies": 4 },
+      { "id": "z_petrosaurus", "copies": 2 }
     ]
   }
 }

@@ -8,9 +8,9 @@ describe('createInitialState', () => {
     // 起手 4 + 回合1 抽 1 = 5
     expect(s.plant.hand.length).toBe(DEFAULT_CONFIG.openingDraw + DEFAULT_CONFIG.drawPerTurn);
     expect(s.zombie.hand.length).toBe(DEFAULT_CONFIG.openingDraw + DEFAULT_CONFIG.drawPerTurn);
-    // 40 - 5 = 35
-    expect(s.plant.deck.length).toBe(35);
-    expect(s.zombie.deck.length).toBe(35);
+    // 30 - 5 = 25
+    expect(s.plant.deck.length).toBe(25);
+    expect(s.zombie.deck.length).toBe(25);
     expect(s.turn).toBe(1);
     expect(s.phase).toBe('ZOMBIE_PLAY');
     expect(s.plant.resource).toBe(1);
@@ -32,9 +32,9 @@ describe('createInitialState', () => {
     expect(a.plant.deck.map((c) => c.cardId)).not.toEqual(b.plant.deck.map((c) => c.cardId));
   });
 
-  it('builds 40-card decks', () => {
+  it('builds 30-card decks', () => {
     const s = createInitialState({ seed: 'q' });
-    expect(s.plant.deck.length + s.plant.hand.length).toBe(40);
-    expect(s.zombie.deck.length + s.zombie.hand.length).toBe(40);
+    expect(s.plant.deck.length + s.plant.hand.length).toBe(30);
+    expect(s.zombie.deck.length + s.zombie.hand.length).toBe(30);
   });
 });

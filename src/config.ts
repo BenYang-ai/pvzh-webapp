@@ -23,7 +23,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   blockChargeMax: 3,
   superblock: { mode: 'faithful' },
   superblockOffEveryNTurns: 3,
-  deckSize: 40,
+  deckSize: 30,
   maxCopies: 4,
   openingDraw: 4,
   drawPerTurn: 1,

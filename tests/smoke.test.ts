@@ -7,7 +7,7 @@ describe('scaffold smoke', () => {
     expect(DEFAULT_CONFIG.heroStartHp).toBe(20);
     expect(DEFAULT_CONFIG.laneCount).toBe(5);
     expect(DEFAULT_CONFIG.blockMeterMax).toBe(8);
-    expect(DEFAULT_CONFIG.deckSize).toBe(40);
+    expect(DEFAULT_CONFIG.deckSize).toBe(30);
     expect(DEFAULT_CONFIG.superblock.mode).toBe('faithful');
   });
 });

@@ -6,10 +6,10 @@ describe('PLAY_FIGHTER (§5 gating, resources)', () => {
   it('places fighter, deducts resource, removes from hand', () => {
     const s = baseState();
     s.zombie.resource = 3;
-    const id = giveCard(s, 'zombie', 'z_basic'); // cost 2, 3/2
+    const id = giveCard(s, 'zombie', 'z_conehead'); // cost 2, 2/2
     const ns = reduce(s, { type: 'PLAY_FIGHTER', side: 'zombie', instanceId: id, lane: 1 });
-    expect(ns.lanes[1].zombie?.cardId).toBe('z_basic');
-    expect(ns.lanes[1].zombie?.attack).toBe(3);
+    expect(ns.lanes[1].zombie?.cardId).toBe('z_conehead');
+    expect(ns.lanes[1].zombie?.attack).toBe(2);
     expect(ns.zombie.resource).toBe(1);
     expect(ns.zombie.hand.length).toBe(0);
   });
@@ -17,7 +17,7 @@ describe('PLAY_FIGHTER (§5 gating, resources)', () => {
   it('rejects when not enough resource', () => {
     const s = baseState();
     s.zombie.resource = 1;
-    const id = giveCard(s, 'zombie', 'z_basic'); // cost 2
+    const id = giveCard(s, 'zombie', 'z_conehead'); // cost 2
     expect(() => reduce(s, { type: 'PLAY_FIGHTER', side: 'zombie', instanceId: id, lane: 0 })).toThrow(
       /not enough resource/,
     );

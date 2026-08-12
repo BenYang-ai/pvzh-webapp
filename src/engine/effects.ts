@@ -107,6 +107,7 @@ export function applyEffect(state: GameState, e: Effect, ctx: EffectCtx): void {
       if (!f) return;
       f.attack = Math.max(0, f.attack + e.attack);
       f.health += e.health;
+      if (f.health <= 0) removeFighter(state, t.lane, t.side); // 负 buff(如 Nibble -1/-1)致死
       return;
     }
     case 'draw': {
