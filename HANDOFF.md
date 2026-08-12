@@ -18,8 +18,8 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 - **M4 ✅ local god-view UI** (moved before M3 to verify logic; hot-seat DROPPED — network/wifi only)
 - Combat rules FIXED to real PvZH (see below)
 - Leo's custom card **Petrosaurus** added + art pipeline live
+- Real card pool REBUILT with wiki-verified stats (PR #5, deck 30) — see "Real card pool — DONE"
 - **M3 ⏳ NEXT: superpowers + Super-Block Meter** (8 SPs, faithful/pick/off modes)
-- **Real card pool rebuild ⏳ IN PROGRESS** (this branch — see "Pending: real pool")
 - M5 ⏳ Supabase networking (room code, per-device view, sync)
 - M6 ⏳ PWA + deploy polish
 - M7 ⏳ hand-drawn art takeover (pipeline already works via `art.image`)
