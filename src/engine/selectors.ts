@@ -29,6 +29,11 @@ export function canPlayTrickNow(state: GameState, side: Side): boolean {
   return state.phase === 'ZOMBIE_TRICKS';
 }
 
+// 某张手牌此刻能否打出(按牌型分派)。UI 高亮/可点用,与 reduce 校验一致。
+export function canPlayCardNow(state: GameState, side: Side, card: Card): boolean {
+  return card.type === 'fighter' ? canPlayFighterNow(state, side) : canPlayTrickNow(state, side);
+}
+
 export function emptyLanes(state: GameState, side: Side): number[] {
   const out: number[] = [];
   state.lanes.forEach((ln, i) => {
