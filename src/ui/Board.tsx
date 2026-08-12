@@ -244,7 +244,12 @@ function SuperpowerControls({
   const canCast = active && (viewSide == null || active === viewSide) && canPlaySuperpowerNow(state, active);
   const castable = canCast ? readySuperpower(state, active!) : null;
 
-  if (!spSel && !castable && offers.length === 0) return null;
+  // 已充能但当前不可施放的 SP(非本方 play phase)→ 显示只读“charged”提示。
+  const charged = visibleSides
+    .map((side) => ({ side, sp: readySuperpower(state, side) }))
+    .filter((c) => c.sp && !(castable && active === c.side));
+
+  if (!spSel && !castable && offers.length === 0 && charged.length === 0) return null;
 
   const sideLabel = (s: Side) => (s === 'plant' ? 'Plants' : 'Zombies');
 
@@ -274,6 +279,16 @@ function SuperpowerControls({
           </button>
         )
       )}
+
+      {charged.map(({ side, sp }) => (
+        <span
+          key={`charged-${side}`}
+          className="flex items-center gap-1 rounded bg-[#1c2733] px-2 py-0.5 text-xs text-[#8fae95]"
+          title="Charged — playable on this side's play phase"
+        >
+          ⚡ {sideLabel(side)}: {sp!.name} <span className="text-[#5f7566]">(charged)</span>
+        </span>
+      ))}
 
       {offers.map(({ side, list }) => (
         <span key={side} className="flex items-center gap-1">
