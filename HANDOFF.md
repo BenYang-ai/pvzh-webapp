@@ -26,6 +26,9 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 - M6 ⏳ PWA + deploy polish
 - M7 ⏳ hand-drawn art takeover (pipeline already works via `art.image`)
 
+## Bug-fix workflow
+Invoke the **`pvzh-debug`** project skill (`.claude/skills/pvzh-debug/SKILL.md`) when Ben pastes a replay log — it encodes the whole loop (reproduce → verify real bug → fix → regression test → PR/squash-merge → offer Load-log resume).
+
 ## Known bugs / next fixes
 - _(none open)_
 - **`bullseye` FIXED (Ben, 2026-08-13, PR pending).** Was hero-seeking (skipped lane fighter). Now attacks normally — hits the fighter in front if present, else the hero; its only special effect is bypassing the Super-Block Meter on **hero** hits (`isFighterHit:false` only when bullseye reaches a hero). Deleted the bullseye early-return in `performAttack`; normal hero-hit branch passes `isFighterHit: !bullseye`. Verified with the Cactus-vs-Smelly repro (Cactus deals 2 → Smelly 4→2, then dies to Smelly's deadly).
