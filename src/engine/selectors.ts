@@ -87,21 +87,22 @@ export function offeredSuperpowers(state: GameState, side: Side): Superpower[] {
 // 超能力的合法目标(与 validateSuperpowerTarget 同规则)。none/random 返回 []。
 export function superpowerTargets(state: GameState, side: Side, sp: Superpower): Array<{ lane: number; side: Side }> {
   const out: Array<{ lane: number; side: Side }> = [];
-  const pushFrom = (targetSide: Side, minAttack?: number) => {
+  const pushFrom = (targetSide: Side, opts?: { minAttack?: number; blockUntrickable?: boolean }) => {
     state.lanes.forEach((ln, i) => {
       const f = ln[targetSide];
       if (!f || f.gravestone) return;
-      if (minAttack !== undefined && f.attack < minAttack) return;
+      if (opts?.blockUntrickable && hasKeyword(f.keywords, 'untrickable')) return;
+      if (opts?.minAttack !== undefined && f.attack < opts.minAttack) return;
       out.push({ lane: i, side: targetSide });
     });
   };
   switch (sp.targeting) {
     case 'friendlyFighter':
     case 'friendlyFighterThenLane':
-      pushFrom(side);
+      pushFrom(side); // 友方增益不受 untrickable 限制
       break;
     case 'enemyFighter':
-      pushFrom(otherSide(side), sp.minAttack);
+      pushFrom(otherSide(side), { minAttack: sp.minAttack, blockUntrickable: true });
       break;
     default:
       break; // none:无目标
