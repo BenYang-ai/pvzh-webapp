@@ -252,7 +252,7 @@ function requireTargetable(state: GameState, t: { lane: number; side: Side }): F
   const f = state.lanes[t.lane]?.[t.side];
   if (!f) throw new IllegalActionError('no fighter at target');
   if (f.gravestone) throw new IllegalActionError('target is a hidden gravestone'); // 未翻面不可指向(§7)
-  return f; // 注:超能力不受 untrickable 限制(untrickable 仅挡 trick)
+  return f; // untrickable 检查在 enemyFighter 分支(仅挡敌方指向,友方增益不受限)
 }
 
 function validateSuperpowerTarget(
@@ -275,6 +275,8 @@ function validateSuperpowerTarget(
       const t = action.target;
       if (!t || t.side !== enemy) throw new IllegalActionError('must target an enemy fighter');
       const f = requireTargetable(state, t);
+      // untrickable:敌方对其免疫 trick 与超能力(§7)
+      if (hasKeyword(f.keywords, 'untrickable')) throw new IllegalActionError('target is untrickable');
       if (sp.minAttack !== undefined && f.attack < sp.minAttack)
         throw new IllegalActionError(`target attack must be ≥ ${sp.minAttack}`);
       return;

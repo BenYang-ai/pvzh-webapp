@@ -105,6 +105,16 @@ describe('Super Brainz superpowers', () => {
     expect(ns.lanes[0].plant).toBeNull();
   });
 
+  it('Cut Down cannot target an untrickable plant (even at attack ≥ 5)', () => {
+    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_cut_down');
+    const f = placeFighter(s, 0, 'plant', 'p_snapdragon');
+    f.attack = 5;
+    f.keywords.push('untrickable');
+    expect(() =>
+      reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie', target: { lane: 0, side: 'plant' } }),
+    ).toThrow(/untrickable/);
+  });
+
   it('Cut Down rejects a plant with attack < 5', () => {
     const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_cut_down');
     placeFighter(s, 0, 'plant', 'p_snapdragon'); // attack 3
