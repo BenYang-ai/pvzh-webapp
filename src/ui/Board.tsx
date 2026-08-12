@@ -29,6 +29,7 @@ export interface BoardProps {
   onLeave?: () => void; // 联网模式
   banner?: string | null; // 联网状态提示(连接中/对手回合)
   getLog?: () => string; // 提供 → 显示 "Copy log" 按钮(可重放日志)
+  onImportLog?: (json: string) => string | null; // 提供 → 显示 "Load log";返回错误字符串或 null
 }
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -54,7 +55,7 @@ function advanceLabel(phase: Phase): string {
   }
 }
 
-export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog }: BoardProps) {
+export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog, onImportLog }: BoardProps) {
   const [sel, setSel] = useState<Selection>(null);
   const [spSel, setSpSel] = useState<SPSelection>(null);
 
@@ -204,6 +205,7 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
             </button>
           )}
           {getLog && <CopyLogButton getLog={getLog} />}
+          {onImportLog && <LoadLogButton onImportLog={onImportLog} />}
         </span>
       </div>
 
@@ -330,6 +332,63 @@ function CopyLogButton({ getLog }: { getLog: () => string }) {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// 导入日志:粘贴 JSON → 重放到该局面并从此继续。返回错误则展示,否则关闭。
+function LoadLogButton({ onImportLog }: { onImportLog: (json: string) => string | null }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  function load() {
+    const e = onImportLog(text);
+    if (e) {
+      setErr(e);
+      return;
+    }
+    setOpen(false);
+    setText('');
+    setErr(null);
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-md bg-[#2a3a4a] px-3 py-1 hover:bg-[#3a4a5a]"
+      >
+        📥 Load log
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="flex w-full max-w-lg flex-col gap-2 rounded-lg bg-[#16241a] p-4">
+            <p className="text-sm">Paste a game log to resume from that position:</p>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="{ &quot;seed&quot;: …, &quot;actions&quot;: [ … ] }"
+              className="h-64 w-full rounded bg-[#0f1a12] p-2 font-mono text-xs outline-none ring-1 ring-[#2a3d30] focus:ring-[#4a8f5a]"
+            />
+            {err && <p className="text-sm text-red-300">⚠ {err}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  setErr(null);
+                }}
+                className="rounded-md bg-[#3a3a4a] px-3 py-1 hover:bg-[#4a4a5a]"
+              >
+                Cancel
+              </button>
+              <button onClick={load} className="rounded-md bg-sky-700 px-3 py-1 font-semibold hover:bg-sky-600">
+                Load &amp; resume
+              </button>
+            </div>
           </div>
         </div>
       )}

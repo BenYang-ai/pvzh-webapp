@@ -4,7 +4,7 @@ import { useGame } from './useGame.ts';
 
 // 本地 god-view:双方手牌可见、同屏操作(M4 行为)。
 export function LocalGame({ onExit }: { onExit?: () => void }) {
-  const { state, apply, error, reset, exportLog } = useGame('game-1');
+  const { state, apply, error, reset, exportLog, importLog } = useGame('game-1');
   const [seedN, setSeedN] = useState(1);
 
   function newGame() {
@@ -20,6 +20,7 @@ export function LocalGame({ onExit }: { onExit?: () => void }) {
       onNewGame={newGame}
       onLeave={onExit}
       getLog={exportLog}
+      onImportLog={importLog}
     />
   );
 }
