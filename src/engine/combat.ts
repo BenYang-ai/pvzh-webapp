@@ -70,13 +70,6 @@ export function performAttack(
   const me = getCard(attacker.cardId).name;
   const defName = (f: Fighter) => getCard(f.cardId).name;
 
-  // Bullseye:直击对方 hero,无视 lane,不触发对方 Block 充能(§7)
-  if (hasKeyword(attacker.keywords, 'bullseye')) {
-    state.log.push(`${me} (L${lane}) bullseye → ${enemy} hero for ${atk}`);
-    applyHeroDamage(state, enemy, atk, { isFighterHit: false });
-    return { destroyedDefender: false };
-  }
-
   // Strikethrough:同时命中对方 fighter 与 hero(§7)
   if (hasKeyword(attacker.keywords, 'strikethrough')) {
     let destroyed = false;
@@ -95,8 +88,12 @@ export function performAttack(
     state.log.push(`${me} (L${lane}) hits ${defName(def)} for ${atk}${deadly ? ' (deadly)' : ''}`);
     return { destroyedDefender: dealCombatDamage(def, atk, deadly) };
   }
-  state.log.push(`${me} (L${lane}) hits ${enemy} hero for ${atk}`);
-  applyHeroDamage(state, enemy, atk, { isFighterHit: true });
+  // Bullseye:命中 hero 时无视 Super-Block Meter(不充能、不格挡);普通攻击照常充能。
+  const bullseye = hasKeyword(attacker.keywords, 'bullseye');
+  state.log.push(
+    `${me} (L${lane}) hits ${enemy} hero for ${atk}${bullseye ? ' (bullseye, no block)' : ''}`,
+  );
+  applyHeroDamage(state, enemy, atk, { isFighterHit: !bullseye });
   return { destroyedDefender: false };
 }
 

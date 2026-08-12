@@ -58,15 +58,24 @@ describe('FIGHT — deadly (§6, ans #5)', () => {
 });
 
 describe('FIGHT — bullseye (§7)', () => {
-  it('bullseye ignores blocker, hits hero; blocker survives and strikes back', () => {
+  it('bullseye attacks the fighter in front normally (no hero-seeking)', () => {
     const s = baseState({ phase: 'FIGHT' });
-    placeFighter(s, 0, 'zombie', 'z_conehead'); // 2/2 armored
+    placeFighter(s, 0, 'zombie', 'z_smelly'); // 2/4 deadly
     placeFighter(s, 0, 'plant', 'p_cactus'); // 2/5 bullseye
     resolveFight(s, cfg);
-    // conehead 2 → cactus 5→3. cactus bullseye → 2 to zombieHero, ignores conehead.
+    // smelly 2 → cactus 5→3, deadly → cactus destroyed. cactus 2 → smelly 4→2 (in front, not hero).
+    expect(s.lanes[0].plant).toBeNull(); // cactus dies to deadly
+    expect(s.lanes[0].zombie?.health).toBe(2); // smelly took the 2, survives
+    expect(s.zombie.hero.hp).toBe(20); // hero untouched — bullseye hit the fighter
+  });
+
+  it('when it reaches the hero (empty lane), bullseye bypasses the Super-Block Meter', () => {
+    const s = baseState({ phase: 'FIGHT' });
+    placeFighter(s, 0, 'plant', 'p_cactus'); // 2/5 bullseye, no zombie in front
+    resolveFight(s, cfg);
+    // cactus 2 → zombie hero, but bullseye ⇒ no block charge.
     expect(s.zombie.hero.hp).toBe(18);
-    expect(s.lanes[0].plant?.health).toBe(3);
-    expect(s.lanes[0].zombie?.health).toBe(2);
+    expect(s.zombie.hero.blockMeter).toBe(0);
   });
 });
 
