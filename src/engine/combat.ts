@@ -67,9 +67,12 @@ export function performAttack(
   const enemy = otherSide(side);
   const atk = attacker.attack; // 攻击瞬间取当前值(§6)
   const deadly = hasKeyword(attacker.keywords, 'deadly');
+  const me = getCard(attacker.cardId).name;
+  const defName = (f: Fighter) => getCard(f.cardId).name;
 
   // Bullseye:直击对方 hero,无视 lane,不触发对方 Block 充能(§7)
   if (hasKeyword(attacker.keywords, 'bullseye')) {
+    state.log.push(`${me} (L${lane}) bullseye → ${enemy} hero for ${atk}`);
     applyHeroDamage(state, enemy, atk, { isFighterHit: false });
     return { destroyedDefender: false };
   }
@@ -78,6 +81,9 @@ export function performAttack(
   if (hasKeyword(attacker.keywords, 'strikethrough')) {
     let destroyed = false;
     const def = state.lanes[lane][enemy];
+    state.log.push(
+      `${me} (L${lane}) strikethrough → ${def ? defName(def) : '—'} + ${enemy} hero for ${atk}`,
+    );
     if (def) destroyed = dealCombatDamage(def, atk, deadly);
     applyHeroDamage(state, enemy, atk, { isFighterHit: true });
     return { destroyedDefender: destroyed };
@@ -85,7 +91,11 @@ export function performAttack(
 
   // 普通:有对方 fighter 打 fighter,否则打 hero
   const def = state.lanes[lane][enemy];
-  if (def) return { destroyedDefender: dealCombatDamage(def, atk, deadly) };
+  if (def) {
+    state.log.push(`${me} (L${lane}) hits ${defName(def)} for ${atk}${deadly ? ' (deadly)' : ''}`);
+    return { destroyedDefender: dealCombatDamage(def, atk, deadly) };
+  }
+  state.log.push(`${me} (L${lane}) hits ${enemy} hero for ${atk}`);
   applyHeroDamage(state, enemy, atk, { isFighterHit: true });
   return { destroyedDefender: false };
 }
@@ -114,14 +124,15 @@ function consumeFrozen(f: Fighter | null): boolean {
 
 // §5:FIGHT 开始翻开所有 gravestone,触发 onReveal。
 function revealGravestones(state: GameState): void {
-  for (const lane of state.lanes) {
+  state.lanes.forEach((lane, i) => {
     const z = lane.zombie;
     if (z && z.gravestone) {
       z.gravestone = false;
       const card = getCard(z.cardId);
+      state.log.push(`Gravestone revealed: ${card.name} (L${i})`);
       if (card.onReveal) applyEffects(state, card.onReveal, { caster: 'zombie', self: z });
     }
-  }
+  });
 }
 
 // §6 逐 lane 结算:僵尸先攻 → 植物攻(濒死也反击)→ 结算死亡 → frenzy。
@@ -147,12 +158,19 @@ function resolveLane(state: GameState, lane: number, config: GameConfig): boolea
   }
 
   // STEP 3 — 统一结算死亡
-  if (P && (P.health <= 0 || plantDestroyed)) removeFighter(state, lane, 'plant');
-  if (Z && (Z.health <= 0 || zombieDestroyed)) removeFighter(state, lane, 'zombie');
+  if (P && (P.health <= 0 || plantDestroyed)) {
+    state.log.push(`${getCard(P.cardId).name} destroyed (L${lane})`);
+    removeFighter(state, lane, 'plant');
+  }
+  if (Z && (Z.health <= 0 || zombieDestroyed)) {
+    state.log.push(`${getCard(Z.cardId).name} destroyed (L${lane})`);
+    removeFighter(state, lane, 'zombie');
+  }
 
   // STEP 4 — Frenzy(僵尸专属):存活 + 本 lane 摧毁了植物 → bonus attack 打脸
   const zNow = state.lanes[lane].zombie;
   if (zNow && hasKeyword(zNow.keywords, 'frenzy') && plantDestroyed && zActs) {
+    state.log.push(`${getCard(zNow.cardId).name} frenzy → bonus attack (L${lane})`);
     performAttack(state, 'zombie', lane, config); // lane 已清空 → 直击 plantHero
     if (checkGameOver(state)) return true;
   }
@@ -160,6 +178,7 @@ function resolveLane(state: GameState, lane: number, config: GameConfig): boolea
 }
 
 export function resolveFight(state: GameState, config: GameConfig): void {
+  state.log.push(`— fight (turn ${state.turn}) —`);
   revealGravestones(state);
   for (let l = 0; l < state.lanes.length; l++) {
     if (resolveLane(state, l, config)) return; // 某方 hero 死亡 → 立即停止
