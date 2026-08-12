@@ -30,7 +30,7 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 Invoke the **`pvzh-debug`** project skill (`.claude/skills/pvzh-debug/SKILL.md`) when Ben pastes a replay log — it encodes the whole loop (reproduce → verify real bug → fix → regression test → PR/squash-merge → offer Load-log resume).
 
 ## Known bugs / next fixes
-- _(none open)_
+- **Super-Block mid-fight offer (issue #2, NEXT PR).** When the Super-Block Meter fills during a FIGHT and grants a superpower, the fight should PAUSE and offer the owner a chance to play *only that superpower* immediately (SP-only mini-trick window). If declined, the SP stays in `readySuperpower` and can be played on the owner's next play phase (current behavior). Needs an interruptible fight: a pause phase (e.g. `SUPERPOWER_INTERRUPT`) that snapshots the mid-fight continuation, then resumes `resolveFight`. Not yet started.
 - **`bullseye` FIXED (Ben, 2026-08-13, PR pending).** Was hero-seeking (skipped lane fighter). Now attacks normally — hits the fighter in front if present, else the hero; its only special effect is bypassing the Super-Block Meter on **hero** hits (`isFighterHit:false` only when bullseye reaches a hero). Deleted the bullseye early-return in `performAttack`; normal hero-hit branch passes `isFighterHit: !bullseye`. Verified with the Cactus-vs-Smelly repro (Cactus deals 2 → Smelly 4→2, then dies to Smelly's deadly).
 
 ## Architecture (files)
@@ -55,6 +55,7 @@ Invoke the **`pvzh-debug`** project skill (`.claude/skills/pvzh-debug/SKILL.md`)
 - **Ending zombie tricks auto-resolves the fight** (no separate "resolve" click) — advancing from ZOMBIE_TRICKS runs endTurn.
 - Fatigue REMOVED: empty deck on forced draw = **tie game**.
 - Keywords v1: `armored:N`, `bullseye` (hero-direct, no block charge), `strikethrough` (fighter+hero), `deadly` (>0 dmg destroys; armor doesn't save when residual>0), `frenzy`(z), `gravestone`(z, untargetable by anyone until FIGHT reveal), **`untrickable`** (trick-immune, both sides), **`cantBeHurt`** (temp this-turn shield: zeros ALL damage incl deadly, but destroyIf still works; cleared at next turn start).
+- **Hand size limit (`config.handSizeMax`=10):** at turn start a side with **≥10 cards does NOT draw** (other mechanics — superpowers/card effects — can still push a hand past 10). While a hero's own hand is **≥10, enemy hits do NOT charge that hero's Super-Block Meter** (treated as bullseye: no charge, no block, damage passes). Both gated on `handSizeMax`; the meter charge check lives in `combat.applyHeroDamage`, the draw skip in `reduce.startTurn`.
 - Super-Block Meter (§8.1) implemented in M3 (see "M3 — DONE"). `applyHeroDamage(state, side, amount, {isFighterHit})` charges/blocks/grants; bullseye/trick/SP pass isFighterHit:false (no charge).
 - Superpowers (M3) confirmed vs wiki — Green Shadow: precision_blast(sig, 5 dmg mid lane), whirlwind(bounce random zombie), big_chill(freeze + draw), embiggen(+2/+2). Super Brainz: carried_away(sig, move zombie to empty lane +1/+1 + bonus attack), telepathy(draw 2), cut_down(destroy plant atk≥5), super_stench(all zombies gain deadly + draw). Modes: faithful(default)/pick/off — engine must support all three.
 

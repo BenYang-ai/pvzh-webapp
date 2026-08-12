@@ -92,7 +92,9 @@ function startTurn(state: GameState, config: GameConfig, turn: number): void {
   }
   for (const side of ['plant', 'zombie'] as Side[]) {
     const p = player(state, side);
-    drawCards(state, side, config.drawPerTurn);
+    // 手牌已满(≥handSizeMax)→ 回合开始不抽牌(真实 PvZH:满手不摸)。
+    // 其它机制(超能力/卡牌效果)仍可让手牌超过上限。
+    if (p.hand.length < config.handSizeMax) drawCards(state, side, config.drawPerTurn);
     if (state.winner) return; // 牌库抽空 → 和局
     p.resource = turn + p.bonusResourceNextTurn;
     p.bonusResourceNextTurn = 0;
