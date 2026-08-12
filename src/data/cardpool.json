@@ -110,5 +110,44 @@
       { "id": "z_bounce", "copies": 4 },
       { "id": "z_petrosaurus", "copies": 2 }
     ]
+  },
+  "superpowers": {
+    "plant": [
+      {
+        "id": "gs_precision_blast", "name": "Precision Blast", "faction": "plant",
+        "signature": true, "targeting": "none"
+      },
+      {
+        "id": "gs_whirlwind", "name": "Whirlwind", "faction": "plant", "targeting": "none",
+        "effects": [{ "kind": "bounce", "target": "random" }]
+      },
+      {
+        "id": "gs_big_chill", "name": "Big Chill", "faction": "plant", "targeting": "enemyFighter",
+        "effects": [{ "kind": "freeze", "target": "chosen" }, { "kind": "draw", "count": 1, "side": "self" }]
+      },
+      {
+        "id": "gs_embiggen", "name": "Embiggen", "faction": "plant", "targeting": "friendlyFighter",
+        "effects": [{ "kind": "buff", "attack": 2, "health": 2, "target": "chosen" }]
+      }
+    ],
+    "zombie": [
+      {
+        "id": "sb_carried_away", "name": "Carried Away", "faction": "zombie",
+        "signature": true, "targeting": "friendlyFighterThenLane"
+      },
+      {
+        "id": "sb_telepathy", "name": "Telepathy", "faction": "zombie", "targeting": "none",
+        "effects": [{ "kind": "draw", "count": 2, "side": "self" }]
+      },
+      {
+        "id": "sb_cut_down", "name": "Cut Down to Size", "faction": "zombie", "targeting": "enemyFighter",
+        "minAttack": 5,
+        "effects": [{ "kind": "destroyIf", "stat": "attack", "op": ">=", "value": 5, "target": "chosen" }]
+      },
+      {
+        "id": "sb_super_stench", "name": "Super Stench", "faction": "zombie", "targeting": "none",
+        "effects": [{ "kind": "giveKeywordAll", "keyword": "deadly", "side": "friendly" }, { "kind": "draw", "count": 1, "side": "self" }]
+      }
+    ]
   }
 }

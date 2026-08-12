@@ -8,11 +8,13 @@ import type {
   Side,
 } from './types.ts';
 import { DEFAULT_CONFIG, type GameConfig } from '../config.ts';
-import { getCard } from './cardpool.ts';
+import { getCard, getSuperpower } from './cardpool.ts';
 import { buildDeck, makeFighter, hasKeyword } from './deck.ts';
 import { seedFromString, shuffle } from './rng.ts';
 import { applyEffects, drawCards, otherSide, player } from './effects.ts';
 import { resolveFight } from './combat.ts';
+import { applySuperpower, grantSuperpower } from './superpowers.ts';
+import type { Fighter, Superpower } from './types.ts';
 
 export class IllegalActionError extends Error {}
 
@@ -68,6 +70,7 @@ export function createInitialState(opts: InitOptions): GameState {
     instanceCounter: counter,
     winner: null,
     log: [],
+    config,
   };
 
   // 起手 draw(§10.3)
@@ -93,6 +96,13 @@ function startTurn(state: GameState, config: GameConfig, turn: number): void {
     if (state.winner) return; // 牌库抽空 → 和局
     p.resource = turn + p.bonusResourceNextTurn;
     p.bonusResourceNextTurn = 0;
+  }
+  // off 模式:每 N 回合给每方提供一次自选(无 Super-Block Meter)。
+  if (config.superblock.mode === 'off' && turn % config.superblockOffEveryNTurns === 0) {
+    for (const side of ['plant', 'zombie'] as Side[]) {
+      const hero = player(state, side).hero;
+      if (!hero.readySuperpower && !hero.superpowerOfferedIds?.length) grantSuperpower(state, side);
+    }
   }
   state.phase = 'ZOMBIE_PLAY';
 }
@@ -127,9 +137,11 @@ function endTurn(state: GameState, config: GameConfig): void {
 }
 
 // —— 主 reducer ——(纯函数:克隆输入,变更克隆,返回)
-export function reduce(prev: GameState, action: GameAction, config: GameConfig = DEFAULT_CONFIG): GameState {
+export function reduce(prev: GameState, action: GameAction, configOverride: GameConfig = DEFAULT_CONFIG): GameState {
   if (prev.phase === 'GAME_OVER') throw new IllegalActionError('game over');
   const state: GameState = structuredClone(prev);
+  // 规则配置随 state 走(联网两端一致);老式 config 入参仅作缺省兜底。
+  const config: GameConfig = prev.config ?? configOverride;
 
   switch (action.type) {
     case 'PLAY_FIGHTER':
@@ -142,8 +154,11 @@ export function reduce(prev: GameState, action: GameAction, config: GameConfig =
       advancePhase(state, action, config);
       return state;
     case 'PLAY_SUPERPOWER':
+      playSuperpower(state, action);
+      return state;
     case 'PICK_SUPERPOWER':
-      throw new IllegalActionError('superpowers land in M3');
+      pickSuperpower(state, action);
+      return state;
   }
 }
 
@@ -214,6 +229,75 @@ function validateTrickTarget(
 
   if (spec === 'friendlyFighter' && target.side !== side) throw new IllegalActionError(`must target friendly`);
   if (spec === 'enemyFighter' && target.side !== otherSide(side)) throw new IllegalActionError(`must target enemy`);
+}
+
+// —— 超能力(§8)——
+function playSuperpower(state: GameState, action: Extract<GameAction, { type: 'PLAY_SUPERPOWER' }>): void {
+  const { side } = action;
+  const okPhase =
+    (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_PLAY');
+  if (!okPhase) throw new IllegalActionError(`cannot play superpower in ${state.phase}`);
+
+  const hero = player(state, side).hero;
+  if (!hero.readySuperpower) throw new IllegalActionError('no superpower ready');
+  const sp = getSuperpower(hero.readySuperpower);
+  if (sp.faction !== side) throw new IllegalActionError('wrong faction superpower');
+
+  validateSuperpowerTarget(state, side, sp, action);
+  applySuperpower(state, side, sp, action);
+  hero.readySuperpower = null;
+}
+
+function requireTargetable(state: GameState, t: { lane: number; side: Side }): Fighter {
+  const f = state.lanes[t.lane]?.[t.side];
+  if (!f) throw new IllegalActionError('no fighter at target');
+  if (f.gravestone) throw new IllegalActionError('target is a hidden gravestone'); // 未翻面不可指向(§7)
+  return f; // 注:超能力不受 untrickable 限制(untrickable 仅挡 trick)
+}
+
+function validateSuperpowerTarget(
+  state: GameState,
+  side: Side,
+  sp: Superpower,
+  action: Extract<GameAction, { type: 'PLAY_SUPERPOWER' }>,
+): void {
+  const enemy = otherSide(side);
+  switch (sp.targeting) {
+    case 'none':
+      return;
+    case 'friendlyFighter': {
+      const t = action.target;
+      if (!t || t.side !== side) throw new IllegalActionError('must target a friendly fighter');
+      requireTargetable(state, t);
+      return;
+    }
+    case 'enemyFighter': {
+      const t = action.target;
+      if (!t || t.side !== enemy) throw new IllegalActionError('must target an enemy fighter');
+      const f = requireTargetable(state, t);
+      if (sp.minAttack !== undefined && f.attack < sp.minAttack)
+        throw new IllegalActionError(`target attack must be ≥ ${sp.minAttack}`);
+      return;
+    }
+    case 'friendlyFighterThenLane': {
+      const t = action.target;
+      if (!t || t.side !== side) throw new IllegalActionError('must target a friendly fighter');
+      requireTargetable(state, t);
+      const toLane = action.toLane;
+      if (toLane === undefined) throw new IllegalActionError('destination lane required');
+      if (toLane < 0 || toLane >= state.lanes.length) throw new IllegalActionError(`bad lane ${toLane}`);
+      if (state.lanes[toLane][side]) throw new IllegalActionError(`destination lane ${toLane} occupied`);
+      return;
+    }
+  }
+}
+
+function pickSuperpower(state: GameState, action: Extract<GameAction, { type: 'PICK_SUPERPOWER' }>): void {
+  const hero = player(state, action.side).hero;
+  const offered = hero.superpowerOfferedIds;
+  if (!offered?.includes(action.superpowerId)) throw new IllegalActionError('superpower not offered');
+  hero.readySuperpower = action.superpowerId;
+  hero.superpowerOfferedIds = undefined;
 }
 
 function advancePhase(

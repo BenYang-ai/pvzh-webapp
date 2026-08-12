@@ -2,6 +2,7 @@ import type { Effect, Fighter, GameState, Side, TargetRef } from './types.ts';
 import { getCard } from './cardpool.ts';
 import { hasKeyword } from './deck.ts';
 import { nextInt } from './rng.ts';
+import { bonusAttackAt } from './combat.ts';
 
 // —— 场上查找 / 移除 ——
 export function fighterAt(state: GameState, lane: number, side: Side): Fighter | null {
@@ -171,8 +172,12 @@ export function applyEffect(state: GameState, e: Effect, ctx: EffectCtx): void {
       return;
     }
     case 'bonusAttack': {
-      // 需要 §6 performAttack 子程序,M2 combat 实装。
-      throw new Error('bonusAttack requires combat (M2)');
+      const t = resolveTarget(state, e.target, ctx);
+      if (!t) return;
+      const f = state.lanes[t.lane][t.side];
+      if (!f) return;
+      bonusAttackAt(state, t.side, t.lane); // §6 单 fighter 攻击 + 结算被摧毁的对方 + game over
+      return;
     }
   }
 }

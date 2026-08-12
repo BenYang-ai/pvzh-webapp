@@ -19,8 +19,8 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 - Combat rules FIXED to real PvZH (see below)
 - Leo's custom card **Petrosaurus** added + art pipeline live
 - Real card pool REBUILT with wiki-verified stats (PR #5, deck 30) — see "Real card pool — DONE"
-- **M3 ⏳ NEXT: superpowers + Super-Block Meter** (8 SPs, faithful/pick/off modes)
-- M5 ⏳ Supabase networking (room code, per-device view, sync)
+- **M3 ✅ superpowers + Super-Block Meter** (8 SPs, faithful/pick/off modes) — see "M3 — DONE"
+- M5 ⏳ NEXT: Supabase networking (room code, per-device view, sync)
 - M6 ⏳ PWA + deploy polish
 - M7 ⏳ hand-drawn art takeover (pipeline already works via `art.image`)
 
@@ -46,14 +46,23 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 - **Ending zombie tricks auto-resolves the fight** (no separate "resolve" click) — advancing from ZOMBIE_TRICKS runs endTurn.
 - Fatigue REMOVED: empty deck on forced draw = **tie game**.
 - Keywords v1: `armored:N`, `bullseye` (hero-direct, no block charge), `strikethrough` (fighter+hero), `deadly` (>0 dmg destroys; armor doesn't save when residual>0), `frenzy`(z), `gravestone`(z, untargetable by anyone until FIGHT reveal), **`untrickable`** (trick-immune, both sides), **`cantBeHurt`** (temp this-turn shield: zeros ALL damage incl deadly, but destroyIf still works; cleared at next turn start).
-- Super-Block Meter (§8.1) NOT yet implemented (M3): meters render but stay 0. `applyHeroDamage(state, side, amount, {isFighterHit})` is the single hook where M3 plugs in charge/block/grant. Bullseye passes isFighterHit:false (no charge).
+- Super-Block Meter (§8.1) implemented in M3 (see "M3 — DONE"). `applyHeroDamage(state, side, amount, {isFighterHit})` charges/blocks/grants; bullseye/trick/SP pass isFighterHit:false (no charge).
 - Superpowers (M3) confirmed vs wiki — Green Shadow: precision_blast(sig, 5 dmg mid lane), whirlwind(bounce random zombie), big_chill(freeze + draw), embiggen(+2/+2). Super Brainz: carried_away(sig, move zombie to empty lane +1/+1 + bonus attack), telepathy(draw 2), cut_down(destroy plant atk≥5), super_stench(all zombies gain deadly + draw). Modes: faithful(default)/pick/off — engine must support all three.
 
 ## Effect system
-Effect kinds implemented: `damage`, `buff`, `draw`, `rampResource`, `destroyIf`, `bounce`, `freeze`, `shield`, `giveKeywordAll`, `move`. `bonusAttack` throws (wire in M3 via performAttack). TargetRef: `{lane,side}` | `'chosen'` (player pick) | `'random'` | `'fixedLane2'` | `'self'` (ETB fighter).
+Effect kinds implemented: `damage`, `buff`, `draw`, `rampResource`, `destroyIf`, `bounce`, `freeze`, `shield`, `giveKeywordAll`, `move`, `bonusAttack` (M3: wired via `combat.bonusAttackAt` = performAttack + remove destroyed defender + game-over check; effects.ts↔combat.ts is a call-time-only ESM cycle, fine). TargetRef: `{lane,side}` | `'chosen'` (player pick) | `'random'` | `'fixedLane2'` | `'self'` (ETB fighter).
+- **`GameState.config` now carries GameConfig** (M3): combat/effects/superpowers read `state.config` (needed for Super-Block RNG). `reduce` uses `prev.config` over its legacy `configOverride` param. `createInitialState` + test `baseState` stamp it.
+
+## M3 — DONE (superpowers + Super-Block Meter, spec §8)
+- SPs live in `cardpool.json` `superpowers.{plant,zombie}` (id/name/faction/targeting/minAttack?/effects?). Most reuse existing effect kinds; **`gs_precision_blast`** (5 dmg mid-lane index2, fighter-or-hero) and **`sb_carried_away`** (move friendly zombie to empty lane +1/+1 → bonus attack) are id-special-cased in `src/engine/superpowers.ts`.
+- Green Shadow: precision_blast(sig), whirlwind(bounce random), big_chill(freeze+draw), embiggen(+2/+2). Super Brainz: carried_away(sig), telepathy(draw2), cut_down(destroy plant atk≥5), super_stench(all zombies deadly + draw).
+- Super-Block Meter in `combat.applyHeroDamage`: fighter hit on hero (not bullseye/trick/SP) charges 1–3 (seeded); ≥8 → **fully blocks that hit**, clears meter, grants SP. faithful=random into `readySuperpower`; pick/off=offer 4 via `superpowerOfferedIds` → `PICK_SUPERPOWER`. off mode: no charge, instead every `superblockOffEveryNTurns` turns each side is offered (in `startTurn`).
+- Actions `PLAY_SUPERPOWER`/`PICK_SUPERPOWER` in `reduce.ts` (SP playable in own play phase, cost 0; validation `validateSuperpowerTarget`, SPs ignore `untrickable` but not hidden gravestone). UI: `Board.SuperpowerControls` (play button / targeting hint / pick buttons) + `selectors` `canPlaySuperpowerNow`/`readySuperpower`/`offeredSuperpowers`/`superpowerTargets`.
+- Tests: `superpowers.test.ts` (14) + `superblock.test.ts` (7). Total **61 green**.
+- Also fixed (PR #7): zombie could play tricks in `ZOMBIE_PLAY`; now `ZOMBIE_TRICKS`-only (diverges from real PvZH per Ben's call).
 
 ## Testing
-`npm test` (Vitest, 40 tests, all green). `npm run build` (tsc -b + vite). `npm run dev` for local wifi (`http://<mac-ip>:5173`). Test helpers in `tests/engine/helpers.ts` (`baseState`, `placeFighter`, `giveCard`) build minimal states directly.
+`npm test` (Vitest, 61 tests, all green). `npm run build` (tsc -b + vite). `npm run dev` for local wifi (`http://<mac-ip>:5173`). Test helpers in `tests/engine/helpers.ts` (`baseState`, `placeFighter`, `giveCard`) build minimal states directly.
 
 ## Git / deploy workflow
 - PR per change, squash-merge, no review: `git checkout -b feat/x` → commit → `git push -u origin feat/x` → `gh pr create --body-file <file>` → `gh pr merge --squash --delete-branch` → `git checkout main && git pull`.
