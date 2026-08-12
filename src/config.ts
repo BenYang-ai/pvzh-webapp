@@ -13,6 +13,7 @@ export interface GameConfig {
   maxCopies: number; // §10.3 每卡最多 4 份
   openingDraw: number; // §10.3 起手 draw 4
   drawPerTurn: number; // §10.3 每回合 start draw 1
+  handSizeMax: number; // 手牌上限:≥此值时回合开始不再抽牌,且被击中不再充能 Super-Block(视同 bullseye)
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -27,4 +28,5 @@ export const DEFAULT_CONFIG: GameConfig = {
   maxCopies: 4,
   openingDraw: 4,
   drawPerTurn: 1,
+  handSizeMax: 10,
 };

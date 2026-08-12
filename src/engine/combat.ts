@@ -18,7 +18,9 @@ export function applyHeroDamage(
   const hero = player(state, heroSide).hero;
 
   // Super-Block:仅 fighter 命中 hero 且造成正伤害时充能(Bullseye/trick/superpower 不充能);off 模式不充能。
-  if (opts.isFighterHit && amount > 0 && cfg.superblock.mode !== 'off') {
+  // 手牌已满(≥handSizeMax)→ 视同 bullseye:不充能、不格挡,伤害照常(满手拿不到超能力奖励)。
+  const handFull = player(state, heroSide).hand.length >= cfg.handSizeMax;
+  if (opts.isFighterHit && amount > 0 && cfg.superblock.mode !== 'off' && !handFull) {
     const [rng, charge] = nextInt(state.rng, cfg.blockChargeMin, cfg.blockChargeMax);
     state.rng = rng;
     hero.blockMeter += charge;
