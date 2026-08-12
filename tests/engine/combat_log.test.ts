@@ -16,11 +16,12 @@ describe('combat writes a readable event log', () => {
     expect(text).toMatch(/destroyed/);
   });
 
-  it('logs bullseye going to the hero (the confusing case)', () => {
+  it('logs bullseye hitting the fighter in front (the confusing case)', () => {
     const s = baseState({ phase: 'ZOMBIE_TRICKS' });
     placeFighter(s, 0, 'zombie', 'z_smelly'); // gravestone+deadly 2/4
     placeFighter(s, 0, 'plant', 'p_cactus'); // 2/5 bullseye
     resolveFight(s, DEFAULT_CONFIG);
-    expect(s.log.join('\n')).toMatch(/Cactus .* bullseye → zombie hero/);
+    // bullseye attacks normally → hits the Smelly in front, not the hero.
+    expect(s.log.join('\n')).toMatch(/Cactus .* hits Smelly/);
   });
 });

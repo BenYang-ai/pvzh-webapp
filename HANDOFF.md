@@ -27,7 +27,8 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 - M7 ⏳ hand-drawn art takeover (pipeline already works via `art.image`)
 
 ## Known bugs / next fixes
-- **`bullseye` is implemented WRONG** (Ben, 2026-08-13). Current `combat.performAttack` makes bullseye skip the lane fighter and hit the hero directly (like a hero-seeking attack). **Correct rule:** bullseye attacks *normally* (hits the fighter in front if present, else the hero); its ONLY special effect is that when it hits a **hero** it bypasses the Super-Block Meter — no charge, no block (i.e. `isFighterHit:false` on hero hits only). "Hit both fighter AND hero" is **strikethrough**, not bullseye — keep strikethrough as is. Fix: in `performAttack`, delete the special bullseye early-return; in the normal branch, when hitting the hero pass `isFighterHit: !hasKeyword(...,'bullseye')`. Update combat tests + the `combat_log.test.ts` bullseye case (it'll now hit the Cactus/Smelly in front, not the hero). Repro log is in chat 2026-08-13 (Cactus vs Smelly on L1).
+- _(none open)_
+- **`bullseye` FIXED (Ben, 2026-08-13, PR pending).** Was hero-seeking (skipped lane fighter). Now attacks normally — hits the fighter in front if present, else the hero; its only special effect is bypassing the Super-Block Meter on **hero** hits (`isFighterHit:false` only when bullseye reaches a hero). Deleted the bullseye early-return in `performAttack`; normal hero-hit branch passes `isFighterHit: !bullseye`. Verified with the Cactus-vs-Smelly repro (Cactus deals 2 → Smelly 4→2, then dies to Smelly's deadly).
 
 ## Architecture (files)
 - `src/config.ts` — GameConfig constants (HP20, meter 8, charge 1–3, deck 40, superblock.mode='faithful', etc.)
