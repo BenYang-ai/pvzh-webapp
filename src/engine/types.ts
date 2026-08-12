@@ -5,7 +5,14 @@ export type Side = 'plant' | 'zombie';
 export type Faction = Side;
 
 // §5 回合四阶段。START 不是常驻阶段,在回合边界处理(抽牌+资源)。
-export type Phase = 'ZOMBIE_PLAY' | 'PLANT_PLAY' | 'ZOMBIE_TRICKS' | 'FIGHT' | 'GAME_OVER';
+// SUPERPOWER_INTERRUPT:FIGHT 中途 Super-Block 授予超能力 → 暂停战斗,让该方立即打出或跳过。
+export type Phase =
+  | 'ZOMBIE_PLAY'
+  | 'PLANT_PLAY'
+  | 'ZOMBIE_TRICKS'
+  | 'FIGHT'
+  | 'SUPERPOWER_INTERRUPT'
+  | 'GAME_OVER';
 
 // —— 卡牌静态定义(来自 cardpool.json)——
 export type CardType = 'fighter' | 'trick';
@@ -132,6 +139,9 @@ export interface GameState {
   winner: Side | 'draw' | null;
   log: string[];
   config: import('../config.ts').GameConfig; // 规则开关(Super-Block 模式等),随 state 走,联网两端一致
+  // —— FIGHT 中断续算(SUPERPOWER_INTERRUPT 期间有值)——
+  fightResume?: { nextLane: number } | null; // resolveFight 从哪条 lane 续算
+  interrupts?: Side[]; // 本次 fight 中因 Super-Block 获得超能力、待处理的一方(队列,队首优先)
 }
 
 // —— Actions ——

@@ -135,7 +135,17 @@ function canPlayTrick(side: Side, phase: Phase): boolean {
 function endTurn(state: GameState, config: GameConfig): void {
   resolveFight(state, config); // 命中 hero 致死时内部已设 winner + GAME_OVER
   if (state.winner) return;
+  if (state.phase === 'SUPERPOWER_INTERRUPT') return; // 战斗被 Super-Block 打断 → 等玩家处理
   startTurn(state, config, state.turn + 1);
+}
+
+// 处理完队首 interrupt(打出或跳过)后:弹出队首;仍有则留在 INTERRUPT,否则续算战斗。
+function finishInterruptStep(state: GameState, config: GameConfig): void {
+  state.interrupts?.shift();
+  if (state.interrupts && state.interrupts.length > 0) return; // 还有下一方待处理
+  state.interrupts = undefined;
+  state.phase = 'FIGHT'; // 退出中断窗口,回到战斗;endTurn 续算完再决定进入下一回合
+  endTurn(state, config); // resolveFight 从 fightResume 续算;完成则进入下一回合
 }
 
 // —— 主 reducer ——(纯函数:克隆输入,变更克隆,返回)
@@ -156,7 +166,7 @@ export function reduce(prev: GameState, action: GameAction, configOverride: Game
       advancePhase(state, action, config);
       return state;
     case 'PLAY_SUPERPOWER':
-      playSuperpower(state, action);
+      playSuperpower(state, action, config);
       return state;
     case 'PICK_SUPERPOWER':
       pickSuperpower(state, action);
@@ -234,10 +244,18 @@ function validateTrickTarget(
 }
 
 // —— 超能力(§8)——
-function playSuperpower(state: GameState, action: Extract<GameAction, { type: 'PLAY_SUPERPOWER' }>): void {
+function playSuperpower(
+  state: GameState,
+  action: Extract<GameAction, { type: 'PLAY_SUPERPOWER' }>,
+  config: GameConfig,
+): void {
   const { side } = action;
+  // SUPERPOWER_INTERRUPT:仅队首一方可即时打出(战斗中断窗口,SP-only)。
+  const inInterrupt = state.phase === 'SUPERPOWER_INTERRUPT' && state.interrupts?.[0] === side;
   const okPhase =
-    (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_PLAY');
+    inInterrupt ||
+    (side === 'plant' && state.phase === 'PLANT_PLAY') ||
+    (side === 'zombie' && state.phase === 'ZOMBIE_PLAY');
   if (!okPhase) throw new IllegalActionError(`cannot play superpower in ${state.phase}`);
 
   const hero = player(state, side).hero;
@@ -248,6 +266,8 @@ function playSuperpower(state: GameState, action: Extract<GameAction, { type: 'P
   validateSuperpowerTarget(state, side, sp, action);
   applySuperpower(state, side, sp, action);
   hero.readySuperpower = null;
+
+  if (inInterrupt) finishInterruptStep(state, config); // 打出后续算战斗
 }
 
 function requireTargetable(state: GameState, t: { lane: number; side: Side }): Fighter {
@@ -327,6 +347,15 @@ function advancePhase(
     case 'FIGHT':
       endTurn(state, config);
       return;
+    case 'SUPERPOWER_INTERRUPT': {
+      // 跳过:超能力留在 readySuperpower,可在本方 play phase 再打;续算战斗。
+      const side = state.interrupts?.[0];
+      if (!side) throw new IllegalActionError('no interrupt pending');
+      if (action.side !== side) throw new IllegalActionError(`not your interrupt (${side})`);
+      state.log.push(`${side} kept the Super-Block superpower for later`);
+      finishInterruptStep(state, config);
+      return;
+    }
     default:
       throw new IllegalActionError(`cannot advance from ${state.phase}`);
   }

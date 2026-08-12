@@ -12,6 +12,8 @@ export function activeSide(state: GameState): Side | null {
       return 'zombie';
     case 'PLANT_PLAY':
       return 'plant';
+    case 'SUPERPOWER_INTERRUPT':
+      return state.interrupts?.[0] ?? null; // 中断窗口:队首一方行动
     default:
       return null;
   }
@@ -77,6 +79,8 @@ export function cardOf(cardId: string): Card {
 // 本方 play phase 且槽内有 readySuperpower → 可打出。
 export function canPlaySuperpowerNow(state: GameState, side: Side): boolean {
   if (!state[side].hero.readySuperpower) return false;
+  // 战斗中断窗口:仅队首一方可即时打出。
+  if (state.phase === 'SUPERPOWER_INTERRUPT') return state.interrupts?.[0] === side;
   return (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_PLAY');
 }
 
