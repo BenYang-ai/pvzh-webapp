@@ -51,4 +51,14 @@ describe('phase machine (§5)', () => {
     expect(ns.lanes[0].plant?.attack).toBe(2);
     expect(ns.lanes[0].plant?.health).toBe(2);
   });
+
+  it('zombie cannot play trick in ZOMBIE_PLAY (only in ZOMBIE_TRICKS)', () => {
+    const s = baseState({ phase: 'ZOMBIE_PLAY' });
+    s.zombie.resource = 9;
+    placeFighter(s, 0, 'plant', 'p_snapdragon');
+    const id = giveCard(s, 'zombie', 'z_nibble');
+    expect(() =>
+      reduce(s, { type: 'PLAY_TRICK', side: 'zombie', instanceId: id, target: { lane: 0, side: 'plant' } }),
+    ).toThrow(/cannot play trick/);
+  });
 });

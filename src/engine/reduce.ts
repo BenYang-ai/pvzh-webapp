@@ -116,7 +116,8 @@ function canPlayFighter(side: Side, phase: Phase): boolean {
 
 function canPlayTrick(side: Side, phase: Phase): boolean {
   if (side === 'plant') return phase === 'PLANT_PLAY';
-  return phase === 'ZOMBIE_PLAY' || phase === 'ZOMBIE_TRICKS';
+  // 僵尸只能在 ZOMBIE_TRICKS 出 trick(不能在打牌阶段 ZOMBIE_PLAY 出)
+  return phase === 'ZOMBIE_TRICKS';
 }
 
 function endTurn(state: GameState, config: GameConfig): void {
