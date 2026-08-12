@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { GameState, Phase, Side, Superpower } from '../engine/types.ts';
+import type { GameAction, GameState, Phase, Side, Superpower } from '../engine/types.ts';
 import { getCard } from '../engine/cardpool.ts';
 import {
   activeSide,
@@ -14,11 +14,20 @@ import {
   trickTargets,
 } from '../engine/selectors.ts';
 import { CardFace } from './CardFace.tsx';
-import { useGame } from './useGame.ts';
 
 type Selection = { side: Side; instanceId: string } | null;
 // 超能力施放中:sp 需目标时进入;friendlyFighterThenLane(Carried Away)先选 fighter(target)再选 lane。
 type SPSelection = { side: Side; sp: Superpower; target?: { lane: number; side: Side } } | null;
+
+export interface BoardProps {
+  state: GameState;
+  apply: (action: GameAction) => void;
+  error: string | null;
+  viewSide?: Side; // 未设 = 本地 god-view(双方可操作、全可见)。设 = 单侧视角。
+  onNewGame?: () => void; // 本地模式
+  onLeave?: () => void; // 联网模式
+  banner?: string | null; // 联网状态提示(连接中/对手回合)
+}
 
 const PHASE_LABEL: Record<Phase, string> = {
   ZOMBIE_PLAY: 'Zombie plays',
@@ -43,13 +52,13 @@ function advanceLabel(phase: Phase): string {
   }
 }
 
-export function Board() {
-  const { state, apply, error, reset } = useGame('game-1');
+export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner }: BoardProps) {
   const [sel, setSel] = useState<Selection>(null);
   const [spSel, setSpSel] = useState<SPSelection>(null);
-  const [seedN, setSeedN] = useState(1);
 
   const active = activeSide(state);
+  // 该 side 是否归本视角操作(god-view 全部可操作)。
+  const mine = (side: Side) => viewSide == null || side === viewSide;
   const selRef = sel ? state[sel.side].hand.find((r) => r.instanceId === sel.instanceId) : undefined;
   const selCard = selRef ? getCard(selRef.cardId) : null;
 
@@ -57,7 +66,6 @@ export function Board() {
   const highlightLanes = new Set<string>(); // `${side}:${lane}`
   if (spSel) {
     if (spSel.sp.targeting === 'friendlyFighterThenLane' && spSel.target) {
-      // 第二步:选空 lane 作为落点
       emptyLanes(state, spSel.side).forEach((l) => highlightLanes.add(`${spSel.side}:${l}`));
     } else {
       superpowerTargets(state, spSel.side, spSel.sp).forEach((t) => highlightLanes.add(`${t.side}:${t.lane}`));
@@ -71,11 +79,10 @@ export function Board() {
   }
 
   function selectHandCard(side: Side, instanceId: string) {
-    if (state.phase === 'GAME_OVER') return;
-    setSpSel(null); // 选手牌 → 退出超能力施放
+    if (state.phase === 'GAME_OVER' || !mine(side)) return;
+    setSpSel(null);
     const ref = state[side].hand.find((r) => r.instanceId === instanceId)!;
     const card = getCard(ref.cardId);
-    // 取消重复选择
     if (sel && sel.instanceId === instanceId) {
       setSel(null);
       return;
@@ -102,7 +109,7 @@ export function Board() {
       const sp = spSel.sp;
       if (sp.targeting === 'friendlyFighterThenLane') {
         if (!spSel.target) {
-          setSpSel({ ...spSel, target: { lane, side } }); // 第一步:选中友方 fighter
+          setSpSel({ ...spSel, target: { lane, side } });
           return;
         }
         apply({ type: 'PLAY_SUPERPOWER', side: spSel.side, target: spSel.target, toLane: lane });
@@ -122,8 +129,8 @@ export function Board() {
     setSel(null);
   }
 
-  // 打出待用超能力:无目标立即施放,否则进入目标选择。
   function startSuperpower(side: Side) {
+    if (!mine(side)) return;
     const sp = readySuperpower(state, side);
     if (!sp) return;
     setSel(null);
@@ -135,6 +142,7 @@ export function Board() {
   }
 
   function pickSuperpower(side: Side, superpowerId: string) {
+    if (!mine(side)) return;
     apply({ type: 'PICK_SUPERPOWER', side, superpowerId });
   }
 
@@ -145,29 +153,26 @@ export function Board() {
     setSpSel(null);
   }
 
-  function newGame() {
-    reset(`game-${seedN + 1}`);
-    setSeedN((n) => n + 1);
-    setSel(null);
-    setSpSel(null);
-  }
+  const advanceOwner: Side = state.phase === 'PLANT_PLAY' ? 'plant' : 'zombie';
+  const canAdvance = state.phase !== 'GAME_OVER' && mine(advanceOwner);
 
   return (
     <div className="flex aspect-[4/3] max-h-full w-full max-w-[1100px] flex-col gap-1.5 rounded-xl bg-[#16241a] p-3 text-[#e8f0e8] shadow-lg">
-      <HeroBar state={state} side="zombie" active={active === 'zombie'} />
-      <HandRow state={state} side="zombie" sel={sel} active={active} onSelect={selectHandCard} />
+      <HeroBar state={state} side="zombie" active={active === 'zombie'} youAre={viewSide} />
+      <HandRow state={state} side="zombie" sel={sel} active={active} viewSide={viewSide} onSelect={selectHandCard} />
 
       <div className="flex flex-1 flex-col justify-center gap-1.5">
-        <LaneRow state={state} side="zombie" highlight={highlightLanes} onClick={clickLane} />
-        <LaneRow state={state} side="plant" highlight={highlightLanes} onClick={clickLane} />
+        <LaneRow state={state} side="zombie" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} />
+        <LaneRow state={state} side="plant" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} />
       </div>
 
-      <HandRow state={state} side="plant" sel={sel} active={active} onSelect={selectHandCard} />
-      <HeroBar state={state} side="plant" active={active === 'plant'} />
+      <HandRow state={state} side="plant" sel={sel} active={active} viewSide={viewSide} onSelect={selectHandCard} />
+      <HeroBar state={state} side="plant" active={active === 'plant'} youAre={viewSide} />
 
       <SuperpowerControls
         state={state}
         active={active}
+        viewSide={viewSide}
         spSel={spSel}
         onPlay={startSuperpower}
         onPick={pickSuperpower}
@@ -178,16 +183,24 @@ export function Board() {
         <span className="font-semibold">
           Turn {state.turn} · {PHASE_LABEL[state.phase]}
         </span>
+        {banner && <span className="text-sky-300">{banner}</span>}
         {error && <span className="text-red-300">⚠ {error}</span>}
         <span className="ml-auto flex gap-2">
-          {state.phase !== 'GAME_OVER' && (
+          {canAdvance && (
             <button onClick={advance} className="rounded-md bg-[#2e5a38] px-3 py-1 hover:bg-[#3a6d45]">
               {advanceLabel(state.phase)}
             </button>
           )}
-          <button onClick={newGame} className="rounded-md bg-[#3a3a4a] px-3 py-1 hover:bg-[#4a4a5a]">
-            New game
-          </button>
+          {onNewGame && (
+            <button onClick={onNewGame} className="rounded-md bg-[#3a3a4a] px-3 py-1 hover:bg-[#4a4a5a]">
+              New game
+            </button>
+          )}
+          {onLeave && (
+            <button onClick={onLeave} className="rounded-md bg-[#3a3a4a] px-3 py-1 hover:bg-[#4a4a5a]">
+              Leave
+            </button>
+          )}
         </span>
       </div>
 
@@ -200,10 +213,11 @@ export function Board() {
   );
 }
 
-// 超能力控制条:待用 SP 施放按钮、施放中提示、pick 模式候选。
+// 超能力控制条:待用 SP 施放按钮、施放中提示、pick 模式候选。单侧视角只显示本方。
 function SuperpowerControls({
   state,
   active,
+  viewSide,
   spSel,
   onPlay,
   onPick,
@@ -211,16 +225,18 @@ function SuperpowerControls({
 }: {
   state: GameState;
   active: Side | null;
+  viewSide?: Side;
   spSel: SPSelection;
   onPlay: (side: Side) => void;
   onPick: (side: Side, spId: string) => void;
   onCancel: () => void;
 }) {
-  const offers = (['plant', 'zombie'] as Side[])
+  const visibleSides = (['plant', 'zombie'] as Side[]).filter((s) => viewSide == null || s === viewSide);
+  const offers = visibleSides
     .map((side) => ({ side, list: offeredSuperpowers(state, side) }))
     .filter((o) => o.list.length > 0);
 
-  const canCast = active && canPlaySuperpowerNow(state, active);
+  const canCast = active && (viewSide == null || active === viewSide) && canPlaySuperpowerNow(state, active);
   const castable = canCast ? readySuperpower(state, active!) : null;
 
   if (!spSel && !castable && offers.length === 0) return null;
@@ -272,7 +288,17 @@ function SuperpowerControls({
   );
 }
 
-function HeroBar({ state, side, active }: { state: GameState; side: Side; active: boolean }) {
+function HeroBar({
+  state,
+  side,
+  active,
+  youAre,
+}: {
+  state: GameState;
+  side: Side;
+  active: boolean;
+  youAre?: Side;
+}) {
   const p = state[side];
   const label = side === 'zombie' ? 'Zombies' : 'Plants';
   const resIcon = side === 'zombie' ? '🧠' : '☀';
@@ -283,6 +309,7 @@ function HeroBar({ state, side, active }: { state: GameState; side: Side; active
       }`}
     >
       <span className="font-semibold">{label}</span>
+      {youAre === side && <span className="rounded bg-[#2e5a38] px-1.5 text-[10px]">YOU</span>}
       <span className="rounded bg-[#3a1f1f] px-2 py-0.5 text-sm">HP {p.hero.hp}</span>
       <BlockMeter value={p.hero.blockMeter} />
       <span className="ml-auto text-sm">
@@ -302,40 +329,58 @@ function BlockMeter({ value }: { value: number }) {
   );
 }
 
+function CardBack() {
+  return (
+    <div className="flex h-full w-full items-center justify-center rounded-md bg-[#243a4a] text-sm text-[#5a7a8a] shadow-sm">
+      🂠
+    </div>
+  );
+}
+
 function HandRow({
   state,
   side,
   sel,
   active,
+  viewSide,
   onSelect,
 }: {
   state: GameState;
   side: Side;
   sel: Selection;
   active: Side | null;
+  viewSide?: Side;
   onSelect: (side: Side, instanceId: string) => void;
 }) {
   const hand = state[side].hand;
+  const hidden = viewSide != null && side !== viewSide; // 对手手牌不可见
+
   return (
     <div className="flex min-h-[64px] items-center gap-1 overflow-x-auto rounded-lg bg-[#0f1a12] px-2 py-1">
       {hand.length === 0 && <span className="text-xs text-[#3f5a47]">— empty hand —</span>}
-      {hand.map((ref) => {
-        const card = getCard(ref.cardId);
-        const affordable = canAfford(state, side, card);
-        const isActive = active === side;
-        const selected = sel?.instanceId === ref.instanceId;
-        return (
-          <button
-            key={ref.instanceId}
-            onClick={() => onSelect(side, ref.instanceId)}
-            className={`h-14 w-11 shrink-0 rounded-md transition ${
-              selected ? 'ring-2 ring-yellow-300' : ''
-            } ${isActive && affordable ? 'opacity-100' : 'opacity-45'}`}
-          >
-            <CardFace card={card} compact />
-          </button>
-        );
-      })}
+      {hidden
+        ? hand.map((ref) => (
+            <div key={ref.instanceId} className="h-14 w-11 shrink-0">
+              <CardBack />
+            </div>
+          ))
+        : hand.map((ref) => {
+            const card = getCard(ref.cardId);
+            const affordable = canAfford(state, side, card);
+            const isActive = active === side;
+            const selected = sel?.instanceId === ref.instanceId;
+            return (
+              <button
+                key={ref.instanceId}
+                onClick={() => onSelect(side, ref.instanceId)}
+                className={`h-14 w-11 shrink-0 rounded-md transition ${
+                  selected ? 'ring-2 ring-yellow-300' : ''
+                } ${isActive && affordable ? 'opacity-100' : 'opacity-45'}`}
+              >
+                <CardFace card={card} compact />
+              </button>
+            );
+          })}
     </div>
   );
 }
@@ -343,11 +388,13 @@ function HandRow({
 function LaneRow({
   state,
   side,
+  viewSide,
   highlight,
   onClick,
 }: {
   state: GameState;
   side: Side;
+  viewSide?: Side;
   highlight: Set<string>;
   onClick: (side: Side, lane: number) => void;
 }) {
@@ -359,6 +406,8 @@ function LaneRow({
       {state.lanes.map((ln, l) => {
         const f = ln[side];
         const hot = highlight.has(`${side}:${l}`);
+        // 对手的未翻面 gravestone → 面朝下(己方 gravestone 自己可见)
+        const maskGravestone = f && viewSide != null && f.owner !== viewSide && f.gravestone;
         return (
           <button
             key={l}
@@ -367,7 +416,15 @@ function LaneRow({
               hot ? 'border-yellow-300 bg-[#1e3326] ring-1 ring-yellow-300' : 'border-[#2a3d30] bg-[#111e16]'
             }`}
           >
-            {f ? <CardFace card={getCard(f.cardId)} fighter={f} /> : <span className="text-[10px] text-[#3f5a47]">L{l}</span>}
+            {f ? (
+              maskGravestone ? (
+                <CardBack />
+              ) : (
+                <CardFace card={getCard(f.cardId)} fighter={f} />
+              )
+            ) : (
+              <span className="text-[10px] text-[#3f5a47]">L{l}</span>
+            )}
           </button>
         );
       })}
