@@ -1,6 +1,6 @@
 // 派生只读查询:UI 用来高亮合法落子/目标。规则与 reduce.ts 校验保持一致。
-import type { Card, GameState, Side } from './types.ts';
-import { getCard } from './cardpool.ts';
+import type { Card, GameState, Side, Superpower } from './types.ts';
+import { getCard, getSuperpower } from './cardpool.ts';
 import { hasKeyword } from './deck.ts';
 import { otherSide } from './effects.ts';
 
@@ -66,4 +66,45 @@ export function trickTargets(state: GameState, side: Side, card: Card): Array<{ 
 
 export function cardOf(cardId: string): Card {
   return getCard(cardId);
+}
+
+// —— 超能力(§8)——
+// 本方 play phase 且槽内有 readySuperpower → 可打出。
+export function canPlaySuperpowerNow(state: GameState, side: Side): boolean {
+  if (!state[side].hero.readySuperpower) return false;
+  return (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_PLAY');
+}
+
+export function readySuperpower(state: GameState, side: Side): Superpower | null {
+  const id = state[side].hero.readySuperpower;
+  return id ? getSuperpower(id) : null;
+}
+
+export function offeredSuperpowers(state: GameState, side: Side): Superpower[] {
+  return (state[side].hero.superpowerOfferedIds ?? []).map(getSuperpower);
+}
+
+// 超能力的合法目标(与 validateSuperpowerTarget 同规则)。none/random 返回 []。
+export function superpowerTargets(state: GameState, side: Side, sp: Superpower): Array<{ lane: number; side: Side }> {
+  const out: Array<{ lane: number; side: Side }> = [];
+  const pushFrom = (targetSide: Side, minAttack?: number) => {
+    state.lanes.forEach((ln, i) => {
+      const f = ln[targetSide];
+      if (!f || f.gravestone) return;
+      if (minAttack !== undefined && f.attack < minAttack) return;
+      out.push({ lane: i, side: targetSide });
+    });
+  };
+  switch (sp.targeting) {
+    case 'friendlyFighter':
+    case 'friendlyFighterThenLane':
+      pushFrom(side);
+      break;
+    case 'enemyFighter':
+      pushFrom(otherSide(side), sp.minAttack);
+      break;
+    default:
+      break; // none:无目标
+  }
+  return out;
 }

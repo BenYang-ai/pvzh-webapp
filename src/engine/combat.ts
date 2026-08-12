@@ -2,23 +2,38 @@ import type { GameConfig } from '../config.ts';
 import type { Fighter, GameState, Side } from './types.ts';
 import { getCard } from './cardpool.ts';
 import { hasKeyword, keywordValue } from './deck.ts';
-import { applyEffects, otherSide, removeFighter } from './effects.ts';
+import { applyEffects, otherSide, player, removeFighter } from './effects.ts';
+import { nextInt } from './rng.ts';
+import { grantSuperpower } from './superpowers.ts';
 
-// 对 hero 造成伤害。isFighterHit 决定是否给对方 Super-Block Meter 充能(§8.1)。
-// M2:仅扣血。M3 在此插入 meter 充能/格挡逻辑。
+// 对 hero 造成伤害。isFighterHit=true 时给【本方】Super-Block Meter 充能(§8.1)。
+// 充满 → 完全格挡本次攻击(伤害归零)+ 清零 + 获得一个超能力。
 export function applyHeroDamage(
   state: GameState,
   heroSide: Side,
   amount: number,
-  _opts: { isFighterHit: boolean },
+  opts: { isFighterHit: boolean },
 ): void {
-  const hero = heroSide === 'plant' ? state.plant.hero : state.zombie.hero;
+  const cfg = state.config;
+  const hero = player(state, heroSide).hero;
+
+  // Super-Block:仅 fighter 命中 hero 且造成正伤害时充能(Bullseye/trick/superpower 不充能);off 模式不充能。
+  if (opts.isFighterHit && amount > 0 && cfg.superblock.mode !== 'off') {
+    const [rng, charge] = nextInt(state.rng, cfg.blockChargeMin, cfg.blockChargeMax);
+    state.rng = rng;
+    hero.blockMeter += charge;
+    if (hero.blockMeter >= cfg.blockMeterMax) {
+      hero.blockMeter = 0;
+      grantSuperpower(state, heroSide);
+      state.log.push(`${heroSide} Super-Block! attack fully blocked, superpower charged`);
+      return; // 完全格挡:不扣血
+    }
+  }
   hero.hp -= amount;
-  // TODO(M3): if (_opts.isFighterHit) chargeBlockMeter(...);
 }
 
 // 命中后立即判定 hero 死亡(§6:某方 hero ≤0 立即结束,后续攻击不再结算)。
-function checkGameOver(state: GameState): boolean {
+export function checkGameOver(state: GameState): boolean {
   const pDead = state.plant.hero.hp <= 0;
   const zDead = state.zombie.hero.hp <= 0;
   if (!pDead && !zDead) return false;
@@ -73,6 +88,18 @@ export function performAttack(
   if (def) return { destroyedDefender: dealCombatDamage(def, atk, deadly) };
   applyHeroDamage(state, enemy, atk, { isFighterHit: true });
   return { destroyedDefender: false };
+}
+
+// 独立一次 bonus attack(Frenzy / Carried Away / bonusAttack effect 复用)。
+// 与逐 lane 结算不同:立即移除被摧毁的对方 fighter 并判定 game over。
+export function bonusAttackAt(state: GameState, side: Side, lane: number): void {
+  const attacker = state.lanes[lane][side];
+  if (!attacker) return;
+  const enemy = otherSide(side);
+  const { destroyedDefender } = performAttack(state, side, lane, state.config);
+  const def = state.lanes[lane][enemy];
+  if (def && (def.health <= 0 || destroyedDefender)) removeFighter(state, lane, enemy);
+  checkGameOver(state);
 }
 
 // frozen:跳过这次攻击并清除标记(§8)。返回该 fighter 本次是否行动。

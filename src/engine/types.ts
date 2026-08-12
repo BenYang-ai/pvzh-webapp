@@ -62,9 +62,23 @@ export interface Card {
   art: CardArt;
 }
 
+// —— 超能力(§8)。cost 0,不占卡组;通过 Super-Block Meter 获得。——
+export type SuperpowerTargeting = 'none' | 'friendlyFighter' | 'enemyFighter' | 'friendlyFighterThenLane';
+
+export interface Superpower {
+  id: string;
+  name: string;
+  faction: Faction;
+  signature?: boolean; // 英雄招牌超能力
+  targeting: SuperpowerTargeting;
+  minAttack?: number; // Cut Down:仅可指向 attack≥minAttack 的目标
+  effects?: Effect[]; // 通用效果串;precision_blast/carried_away 由 id 特判
+}
+
 export interface Cardpool {
   cards: Record<string, Card>;
   decklists: Record<Side, Array<{ id: string; copies: number }>>;
+  superpowers: Record<Side, Superpower[]>;
 }
 
 // —— 运行时实例 ——
@@ -117,6 +131,7 @@ export interface GameState {
   instanceCounter: number; // 生成 instanceId,保持确定性
   winner: Side | 'draw' | null;
   log: string[];
+  config: import('../config.ts').GameConfig; // 规则开关(Super-Block 模式等),随 state 走,联网两端一致
 }
 
 // —— Actions ——

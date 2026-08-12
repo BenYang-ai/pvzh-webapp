@@ -32,6 +32,7 @@ export function baseState(partial?: Partial<GameState>): GameState {
     instanceCounter: 0,
     winner: null,
     log: [],
+    config: DEFAULT_CONFIG,
     ...partial,
   };
   return s;
