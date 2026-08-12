@@ -61,8 +61,13 @@ Effect kinds implemented: `damage`, `buff`, `draw`, `rampResource`, `destroyIf`,
 - Tests: `superpowers.test.ts` (14) + `superblock.test.ts` (7). Total **61 green**.
 - Also fixed (PR #7): zombie could play tricks in `ZOMBIE_PLAY`; now `ZOMBIE_TRICKS`-only (diverges from real PvZH per Ben's call).
 
+## Debug log / replay (bug reports)
+- Local god-view footer has an always-visible **🐞 Copy log** button (`useGame.exportLog()` → `src/ui/Board.tsx` `CopyLogButton`). Copies `{seed, config, actions, engineLog}` JSON to clipboard (insecure-origin/LAN-http fallback: a select-all textarea modal). Only successful actions are logged.
+- **To debug a pasted log:** `src/engine/replay.ts` `replay(log)` (final state) / `replaySteps(log)` (state after each step). Engine is deterministic, so this reproduces the game bit-for-bit → turn any log into a regression test. Tests: `replay.test.ts`.
+- Only wired into `LocalGame` (full-replay). Net mode not wired (remote moves bypass local `apply`; would need state-snapshot capture — deferred per scope).
+
 ## Testing
-`npm test` (Vitest, 61 tests, all green). `npm run build` (tsc -b + vite). `npm run dev` for local wifi (`http://<mac-ip>:5173`). Test helpers in `tests/engine/helpers.ts` (`baseState`, `placeFighter`, `giveCard`) build minimal states directly.
+`npm test` (Vitest, 67 tests, all green). `npm run build` (tsc -b + vite). `npm run dev` for local wifi (`http://<mac-ip>:5173`). Test helpers in `tests/engine/helpers.ts` (`baseState`, `placeFighter`, `giveCard`) build minimal states directly.
 
 ## Git / deploy workflow
 - PR per change, squash-merge, no review: `git checkout -b feat/x` → commit → `git push -u origin feat/x` → `gh pr create --body-file <file>` → `gh pr merge --squash --delete-branch` → `git checkout main && git pull`.
