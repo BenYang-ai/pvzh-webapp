@@ -4,6 +4,7 @@ import { getCard } from '../engine/cardpool.ts';
 import {
   activeSide,
   canAfford,
+  canPlayCardNow,
   canPlayFighterNow,
   canPlaySuperpowerNow,
   canPlayTrickNow,
@@ -160,14 +161,14 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
   return (
     <div className="flex aspect-[4/3] max-h-full w-full max-w-[1100px] flex-col gap-1.5 rounded-xl bg-[#16241a] p-3 text-[#e8f0e8] shadow-lg">
       <HeroBar state={state} side="zombie" active={active === 'zombie'} youAre={viewSide} />
-      <HandRow state={state} side="zombie" sel={sel} active={active} viewSide={viewSide} onSelect={selectHandCard} />
+      <HandRow state={state} side="zombie" sel={sel} viewSide={viewSide} onSelect={selectHandCard} />
 
       <div className="flex flex-1 flex-col justify-center gap-1.5">
         <LaneRow state={state} side="zombie" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} />
         <LaneRow state={state} side="plant" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} />
       </div>
 
-      <HandRow state={state} side="plant" sel={sel} active={active} viewSide={viewSide} onSelect={selectHandCard} />
+      <HandRow state={state} side="plant" sel={sel} viewSide={viewSide} onSelect={selectHandCard} />
       <HeroBar state={state} side="plant" active={active === 'plant'} youAre={viewSide} />
 
       <SuperpowerControls
@@ -389,14 +390,12 @@ function HandRow({
   state,
   side,
   sel,
-  active,
   viewSide,
   onSelect,
 }: {
   state: GameState;
   side: Side;
   sel: Selection;
-  active: Side | null;
   viewSide?: Side;
   onSelect: (side: Side, instanceId: string) => void;
 }) {
@@ -414,8 +413,8 @@ function HandRow({
           ))
         : hand.map((ref) => {
             const card = getCard(ref.cardId);
-            const affordable = canAfford(state, side, card);
-            const isActive = active === side;
+            // 可点亮 = 本相位这张牌型可打 且 付得起(fighter/trick 各自的相位)
+            const playable = canPlayCardNow(state, side, card) && canAfford(state, side, card);
             const selected = sel?.instanceId === ref.instanceId;
             return (
               <button
@@ -423,7 +422,7 @@ function HandRow({
                 onClick={() => onSelect(side, ref.instanceId)}
                 className={`h-14 w-11 shrink-0 rounded-md transition ${
                   selected ? 'ring-2 ring-yellow-300' : ''
-                } ${isActive && affordable ? 'opacity-100' : 'opacity-45'}`}
+                } ${playable ? 'opacity-100' : 'opacity-45'}`}
               >
                 <CardFace card={card} compact />
               </button>
