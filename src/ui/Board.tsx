@@ -27,6 +27,7 @@ export interface BoardProps {
   onNewGame?: () => void; // 本地模式
   onLeave?: () => void; // 联网模式
   banner?: string | null; // 联网状态提示(连接中/对手回合)
+  getLog?: () => string; // 提供 → 显示 "Copy log" 按钮(可重放日志)
 }
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -52,7 +53,7 @@ function advanceLabel(phase: Phase): string {
   }
 }
 
-export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner }: BoardProps) {
+export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog }: BoardProps) {
   const [sel, setSel] = useState<Selection>(null);
   const [spSel, setSpSel] = useState<SPSelection>(null);
 
@@ -201,6 +202,7 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
               Leave
             </button>
           )}
+          {getLog && <CopyLogButton getLog={getLog} />}
         </span>
       </div>
 
@@ -285,6 +287,52 @@ function SuperpowerControls({
         </span>
       ))}
     </div>
+  );
+}
+
+// 复制可重放日志。clipboard API 需安全上下文(https/localhost);
+// iPad 走 LAN http 时不可用 → 回退到只读 textarea 弹层供手动全选复制。
+function CopyLogButton({ getLog }: { getLog: () => string }) {
+  const [copied, setCopied] = useState(false);
+  const [manual, setManual] = useState<string | null>(null);
+
+  async function copy() {
+    const text = getLog();
+    try {
+      if (!navigator.clipboard) throw new Error('no clipboard');
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setManual(text); // 不安全上下文 → 手动复制弹层
+    }
+  }
+
+  return (
+    <>
+      <button onClick={copy} className="rounded-md bg-[#3a2a4a] px-3 py-1 hover:bg-[#4a3a5a]">
+        {copied ? 'Copied ✓' : '🐞 Copy log'}
+      </button>
+      {manual !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="flex w-full max-w-lg flex-col gap-2 rounded-lg bg-[#16241a] p-4">
+            <p className="text-sm">Select all &amp; copy, then paste to share:</p>
+            <textarea
+              readOnly
+              value={manual}
+              onFocus={(e) => e.currentTarget.select()}
+              className="h-64 w-full rounded bg-[#0f1a12] p-2 font-mono text-xs"
+            />
+            <button
+              onClick={() => setManual(null)}
+              className="self-end rounded-md bg-[#3a3a4a] px-3 py-1 hover:bg-[#4a4a5a]"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
