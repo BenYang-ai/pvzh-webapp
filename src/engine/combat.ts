@@ -28,6 +28,8 @@ export function applyHeroDamage(
       hero.blockMeter = 0;
       grantSuperpower(state, heroSide);
       state.log.push(`${heroSide} Super-Block! attack fully blocked, superpower charged`);
+      // 战斗中获得 → 入队,由 resolveFight 在本 lane 结算完后暂停,给该方即时打出的机会。
+      (state.interrupts ??= []).push(heroSide);
       return; // 完全格挡:不扣血
     }
   }
@@ -176,10 +178,29 @@ function resolveLane(state: GameState, lane: number, config: GameConfig): boolea
   return false;
 }
 
+// 可续算:fightResume 有值 → 从 nextLane 续算(SUPERPOWER_INTERRUPT 之后);无值 → 全新一场。
+// 本 lane 内触发 Super-Block 授予(state.interrupts 非空)→ 暂停,置 SUPERPOWER_INTERRUPT 并返回。
 export function resolveFight(state: GameState, config: GameConfig): void {
-  state.log.push(`— fight (turn ${state.turn}) —`);
-  revealGravestones(state);
-  for (let l = 0; l < state.lanes.length; l++) {
-    if (resolveLane(state, l, config)) return; // 某方 hero 死亡 → 立即停止
+  if (state.winner) return;
+  const resume = state.fightResume;
+  let start = 0;
+  if (resume) {
+    start = resume.nextLane;
+  } else {
+    state.log.push(`— fight (turn ${state.turn}) —`);
+    revealGravestones(state);
   }
+  for (let l = start; l < state.lanes.length; l++) {
+    if (resolveLane(state, l, config)) {
+      state.fightResume = null; // 某方 hero 死亡 → 立即停止
+      state.interrupts = undefined;
+      return;
+    }
+    if (state.interrupts && state.interrupts.length > 0) {
+      state.fightResume = { nextLane: l + 1 }; // 暂停:等玩家处理超能力
+      state.phase = 'SUPERPOWER_INTERRUPT';
+      return;
+    }
+  }
+  state.fightResume = null; // 全部 lane 结算完毕
 }

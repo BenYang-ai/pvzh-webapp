@@ -37,6 +37,7 @@ const PHASE_LABEL: Record<Phase, string> = {
   PLANT_PLAY: 'Plant plays',
   ZOMBIE_TRICKS: 'Zombie tricks',
   FIGHT: 'Fight!',
+  SUPERPOWER_INTERRUPT: 'Super-Block! Play or skip',
   GAME_OVER: 'Game over',
 };
 
@@ -50,6 +51,8 @@ function advanceLabel(phase: Phase): string {
       return 'End tricks & fight ⚔️';
     case 'FIGHT':
       return 'Resolve fight ⚔️';
+    case 'SUPERPOWER_INTERRUPT':
+      return 'Skip superpower ▶';
     default:
       return '';
   }
@@ -149,15 +152,21 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
     apply({ type: 'PICK_SUPERPOWER', side, superpowerId });
   }
 
+  // 谁点“推进/跳过”:INTERRUPT 时是中断队首一方,PLANT_PLAY 时植物,否则僵尸。
+  const advanceOwner: Side =
+    state.phase === 'SUPERPOWER_INTERRUPT'
+      ? (state.interrupts?.[0] ?? 'zombie')
+      : state.phase === 'PLANT_PLAY'
+        ? 'plant'
+        : 'zombie';
+
   function advance() {
-    const owner: Side = state.phase === 'PLANT_PLAY' ? 'plant' : 'zombie';
-    apply({ type: 'ADVANCE_PHASE', side: owner });
+    apply({ type: 'ADVANCE_PHASE', side: advanceOwner });
     setSel(null);
     setSpSel(null);
   }
 
-  const advanceOwner: Side = state.phase === 'PLANT_PLAY' ? 'plant' : 'zombie';
-  const canAdvance = state.phase !== 'GAME_OVER' && mine(advanceOwner);
+  const canAdvance = state.phase !== 'GAME_OVER' && state.phase !== 'FIGHT' && mine(advanceOwner);
 
   return (
     <div className="flex aspect-[4/3] max-h-full w-full max-w-[1100px] flex-col gap-1.5 rounded-xl bg-[#16241a] p-3 text-[#e8f0e8] shadow-lg">
