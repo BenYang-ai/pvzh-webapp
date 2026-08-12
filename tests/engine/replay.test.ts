@@ -40,4 +40,13 @@ describe('replay (debug log)', () => {
     const pasted = JSON.parse(JSON.stringify(log)) as GameLog;
     expect(replay(pasted).turn).toBe(replay(log).turn);
   });
+
+  it('resume-from-position: continuing after replay == replaying the extended log (import feature)', () => {
+    const { log } = recordSomeGame('resume-seed');
+    const resumed = replay(log); // 导入到该局面
+    const nextAction: GameAction = { type: 'ADVANCE_PHASE', side: 'zombie' }; // turn3 ZOMBIE_PLAY → 继续
+    const afterContinue = reduce(resumed, nextAction);
+    const afterExtended = replay({ ...log, actions: [...log.actions, nextAction] });
+    expect(JSON.parse(JSON.stringify(afterContinue))).toEqual(JSON.parse(JSON.stringify(afterExtended)));
+  });
 });
