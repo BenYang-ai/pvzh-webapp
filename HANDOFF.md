@@ -61,8 +61,14 @@ Effect kinds implemented: `damage`, `buff`, `draw`, `rampResource`, `destroyIf`,
 - **Commit-message gotcha:** apostrophes break `$(cat <<EOF)` heredocs — write msg/PR body to a scratchpad file, use `-F file` / `--body-file file`.
 - Deploy: Vercel (email login; GitHub OAuth had failed) auto-builds on push to main, base `/`. GitHub Pages blocked (private repo needs paid plan); `.github/workflows/deploy.yml` is manual-only, uses `DEPLOY_TARGET=pages` for subpath base. `gh` CLI authed as BenYang-ai.
 
-## Pending: real card pool (this branch's task)
-User wants **full real PvZH cards** (real stats + keywords), replacing current approximate pool. Constraints:
+## Real card pool — DONE (wiki-verified stats)
+Pool rebuilt with real PvZ Heroes stats from plantsvszombies.wiki.gg. Deck size = **30** (8 uniques/side; reaching 40 just needs 2 more real uniques/side + copies). Simplifications noted in cardpool `_note` (splash/amphibious/conjure dropped to v1 mechanics).
+- Plants: Peashooter 1/1/1, Sunflower 1/1/1 (+1 sun ramp), Wall-Nut 1/0/6, Bonk Choy 1/2/1, Cactus 3/2/5 bullseye, Snapdragon 4/3/3, Bloomerang 4/3/5 strikethrough, Cherry Bomb 6-trick (4 dmg).
+- Zombies: Imp 1/1/1, Conehead 2/2/2 armored:1, Smelly 3/2/4 gravestone+deadly, Vimpire 3/2/3 frenzy, Space Cowboy 4/3/5 strikethrough, Petrosaurus 8/4/5 deadly+frenzy+armored:1 +shield-self (Leo's, ×2), Nibble 1-trick (-1/-1), Backyard Bounce 3-trick (bounce).
+- Keyword coverage: bullseye(Cactus), strikethrough(Bloomerang/Space Cowboy), armored(Conehead/Petro), deadly(Smelly/Petro — deadly is zombie-only in PvZH), frenzy(Vimpire/Petro), gravestone(Smelly), plus cantBeHurt(Petro onPlay). No card carries `untrickable` yet (engine supports it).
+- `effects.ts` buff now removes a fighter reduced to ≤0 hp (for Nibble -1/-1).
+
+### To extend the pool later (constraints)
 - v1 does NOT enforce class legality (spec §14 roadmap) — free to pick real plants for plant deck, real zombies for zombie deck.
 - Use ONLY mechanics we support (keywords above + implemented effect kinds). Avoid amphibious/team-up/splash/conjure/overshoot etc.
 - KEEP Leo's `z_petrosaurus` (cost 8, 4/5, deadly+frenzy+armored:1, onPlay shield self, art.image scan).

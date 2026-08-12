@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { reduce, IllegalActionError } from '../../src/engine/reduce.ts';
-import { baseState, giveCard } from './helpers.ts';
+import { baseState, giveCard, placeFighter } from './helpers.ts';
 
 describe('phase machine (§5)', () => {
   it('cycles ZOMBIE_PLAY → PLANT_PLAY → ZOMBIE_TRICKS → (auto fight) → next turn', () => {
@@ -45,11 +45,10 @@ describe('phase machine (§5)', () => {
   it('zombie CAN play trick in ZOMBIE_TRICKS', () => {
     const s = baseState({ phase: 'ZOMBIE_TRICKS' });
     s.zombie.resource = 9;
-    const id = giveCard(s, 'zombie', 'z_ironcurtain');
-    // 需要一个友方 fighter 作 shield 目标
-    const f = { instanceId: 'x', cardId: 'z_basic', owner: 'zombie' as const, attack: 3, health: 2, keywords: [], frozen: false, cantBeHurt: false, gravestone: false };
-    s.lanes[0].zombie = f;
-    const ns = reduce(s, { type: 'PLAY_TRICK', side: 'zombie', instanceId: id, target: { lane: 0, side: 'zombie' } });
-    expect(ns.lanes[0].zombie?.cantBeHurt).toBe(true);
+    placeFighter(s, 0, 'plant', 'p_snapdragon'); // 3/3 目标
+    const id = giveCard(s, 'zombie', 'z_nibble'); // -1/-1
+    const ns = reduce(s, { type: 'PLAY_TRICK', side: 'zombie', instanceId: id, target: { lane: 0, side: 'plant' } });
+    expect(ns.lanes[0].plant?.attack).toBe(2);
+    expect(ns.lanes[0].plant?.health).toBe(2);
   });
 });
