@@ -14,7 +14,7 @@ describe('trick effects (non-combat effect interpreter)', () => {
   });
 
   it('Nibble gives -1/-1', () => {
-    const s = baseState({ phase: 'ZOMBIE_PLAY' });
+    const s = baseState({ phase: 'ZOMBIE_TRICKS' });
     s.zombie.resource = 1;
     placeFighter(s, 0, 'plant', 'p_snapdragon'); // 3/3
     const id = giveCard(s, 'zombie', 'z_nibble');
@@ -24,7 +24,7 @@ describe('trick effects (non-combat effect interpreter)', () => {
   });
 
   it('Nibble destroys a 1-health plant', () => {
-    const s = baseState({ phase: 'ZOMBIE_PLAY' });
+    const s = baseState({ phase: 'ZOMBIE_TRICKS' });
     s.zombie.resource = 1;
     placeFighter(s, 0, 'plant', 'p_peashooter'); // 1/1 → -1/-1 → dead
     const id = giveCard(s, 'zombie', 'z_nibble');
@@ -33,7 +33,7 @@ describe('trick effects (non-combat effect interpreter)', () => {
   });
 
   it('Backyard Bounce returns a plant to hand, clearing the lane', () => {
-    const s = baseState({ phase: 'ZOMBIE_PLAY' });
+    const s = baseState({ phase: 'ZOMBIE_TRICKS' });
     s.zombie.resource = 3;
     placeFighter(s, 1, 'plant', 'p_peashooter');
     const id = giveCard(s, 'zombie', 'z_bounce');

@@ -26,7 +26,7 @@ export function canPlayFighterNow(state: GameState, side: Side): boolean {
 
 export function canPlayTrickNow(state: GameState, side: Side): boolean {
   if (side === 'plant') return state.phase === 'PLANT_PLAY';
-  return state.phase === 'ZOMBIE_PLAY' || state.phase === 'ZOMBIE_TRICKS';
+  return state.phase === 'ZOMBIE_TRICKS';
 }
 
 export function emptyLanes(state: GameState, side: Side): number[] {
