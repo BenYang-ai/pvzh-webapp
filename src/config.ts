@@ -7,6 +7,7 @@ export interface GameConfig {
   blockMeterMax: number; // §8.1 8 格
   blockChargeMin: number; // §8.1 随机 1~3
   blockChargeMax: number;
+  blockMeterMaxTriggers: number; // 每方 Super-Block Meter 最多触发次数(充满);达上限后不再有 meter
   superblock: { mode: SuperblockMode }; // §8.1 faithful(默认)/pick/off
   superblockOffEveryNTurns: number; // off 模式:每 N 回合自选一个 SP
   deckSize: number; // §10.3 每方 40
@@ -23,6 +24,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   blockMeterMax: 8,
   blockChargeMin: 1,
   blockChargeMax: 3,
+  blockMeterMaxTriggers: 3,
   superblock: { mode: 'faithful' },
   superblockOffEveryNTurns: 3,
   deckSize: 30,

@@ -7,19 +7,27 @@ import { nextInt } from './rng.ts';
 
 // Super-Block 充满 / off 模式定期:授予超能力。
 // faithful → 从本方 4 个里随机抽一个进 readySuperpower;pick/off → 提供 4 选 1(等玩家 PICK)。
-export function grantSuperpower(state: GameState, side: Side): void {
+// 返回是否实际授予/提供了超能力(全部唯一牌抽尽 → false,调用方不入中断队列)。
+export function grantSuperpower(state: GameState, side: Side): boolean {
   const cfg = state.config;
   const hero = player(state, side).hero;
-  const sps = superpowersFor(side);
+  // 唯一牌:排除已抽到的(同 deck 复制数用尽,不再出现)。
+  const sps = superpowersFor(side).filter((s) => !hero.usedSuperpowerIds.includes(s.id));
+  if (sps.length === 0) {
+    state.log.push(`${side} has no superpowers left (all drawn)`);
+    return false;
+  }
   if (cfg.superblock.mode === 'faithful') {
     const [rng, idx] = nextInt(state.rng, 0, sps.length - 1);
     state.rng = rng;
     hero.readySuperpowers.push(sps[idx].id); // 叠入列表,不覆盖已有(可持有多张)
+    hero.usedSuperpowerIds.push(sps[idx].id); // 抽到即消耗
     state.log.push(`${side} superpower ready: ${sps[idx].name}`);
   } else {
-    hero.superpowerOfferedIds = sps.map((s) => s.id);
+    hero.superpowerOfferedIds = sps.map((s) => s.id); // 只提供未抽过的
     state.log.push(`${side} may pick a superpower`);
   }
+  return true;
 }
 
 type PlaySuperpower = Extract<GameAction, { type: 'PLAY_SUPERPOWER' }>;

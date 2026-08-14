@@ -115,6 +115,8 @@ export type Lane = {
 export interface HeroState {
   hp: number;
   blockMeter: number; // 0..blockMeterMax
+  blockTriggers: number; // Super-Block 已充满次数(0..blockMeterMaxTriggers);达上限后不再充能/格挡
+  usedSuperpowerIds: string[]; // 已抽到的超能力 id(唯一牌:抽过一次不再出现,同 deck 复制数用尽)
   // 待用超能力(可叠多张)。Super-Block 授予即入列;当作 trick 卡:中断窗口内免费即打,
   // 之后留在列表里,在本方 trick 窗口花 1 资源打出(见 reduce.playSuperpower)。
   readySuperpowers: string[]; // SP id 列表(队尾=最近授予)

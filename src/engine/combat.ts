@@ -20,16 +20,19 @@ export function applyHeroDamage(
   // Super-Block:仅 fighter 命中 hero 且造成正伤害时充能(Bullseye/trick/superpower 不充能);off 模式不充能。
   // 手牌已满(≥handSizeMax)→ 视同 bullseye:不充能、不格挡,伤害照常(满手拿不到超能力奖励)。
   const handFull = player(state, heroSide).hand.length >= cfg.handSizeMax;
-  if (opts.isFighterHit && amount > 0 && cfg.superblock.mode !== 'off' && !handFull) {
+  // 达触发上限(默认 3 次充满)后 → 该 hero 再无 block meter,伤害照常。
+  const cappedOut = hero.blockTriggers >= cfg.blockMeterMaxTriggers;
+  if (opts.isFighterHit && amount > 0 && cfg.superblock.mode !== 'off' && !handFull && !cappedOut) {
     const [rng, charge] = nextInt(state.rng, cfg.blockChargeMin, cfg.blockChargeMax);
     state.rng = rng;
     hero.blockMeter += charge;
     if (hero.blockMeter >= cfg.blockMeterMax) {
       hero.blockMeter = 0;
-      grantSuperpower(state, heroSide);
-      state.log.push(`${heroSide} Super-Block! attack fully blocked, superpower charged`);
+      hero.blockTriggers += 1; // 记一次充满(计入 3 次上限)
+      const granted = grantSuperpower(state, heroSide);
+      state.log.push(`${heroSide} Super-Block! attack fully blocked${granted ? ', superpower charged' : ''}`);
       // 战斗中获得 → 入队,由 resolveFight 在本 lane 结算完后暂停,给该方即时打出的机会。
-      (state.interrupts ??= []).push(heroSide);
+      if (granted) (state.interrupts ??= []).push(heroSide);
       return; // 完全格挡:不扣血
     }
   }

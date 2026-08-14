@@ -450,7 +450,7 @@ function HeroBar({
       <span className="font-semibold">{label}</span>
       {youAre === side && <span className="rounded bg-[#2e5a38] px-1.5 text-[10px]">YOU</span>}
       <span className="rounded bg-[#3a1f1f] px-2 py-0.5 text-sm">HP {p.hero.hp}</span>
-      <BlockMeter value={p.hero.blockMeter} />
+      <BlockMeter value={p.hero.blockMeter} capped={p.hero.blockTriggers >= state.config.blockMeterMaxTriggers} />
       <span className="ml-auto text-sm">
         {resIcon} {p.resource}
       </span>
@@ -458,7 +458,9 @@ function HeroBar({
   );
 }
 
-function BlockMeter({ value }: { value: number }) {
+function BlockMeter({ value, capped }: { value: number; capped: boolean }) {
+  // 触发次数用尽 → 该 hero 再无 block meter,不显示。
+  if (capped) return <span className="text-[10px] text-[#5a7a8a]" title="Super-Block used up">no block</span>;
   return (
     <span className="flex gap-0.5" title={`Super-Block ${value}/8`}>
       {Array.from({ length: 8 }, (_, i) => (
