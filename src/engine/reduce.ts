@@ -25,7 +25,7 @@ export interface InitOptions {
 }
 
 function newHero(config: GameConfig): HeroState {
-  return { hp: config.heroStartHp, blockMeter: 0, readySuperpowers: [] };
+  return { hp: config.heroStartHp, blockMeter: 0, blockTriggers: 0, readySuperpowers: [], usedSuperpowerIds: [] };
 }
 
 export function createInitialState(opts: InitOptions): GameState {
@@ -329,6 +329,7 @@ function pickSuperpower(state: GameState, action: Extract<GameAction, { type: 'P
   const offered = hero.superpowerOfferedIds;
   if (!offered?.includes(action.superpowerId)) throw new IllegalActionError('superpower not offered');
   hero.readySuperpowers.push(action.superpowerId);
+  hero.usedSuperpowerIds.push(action.superpowerId); // 唯一牌:抽到即消耗,不再被 offer/grant
   hero.superpowerOfferedIds = undefined;
 }
 
