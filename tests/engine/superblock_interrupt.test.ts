@@ -17,7 +17,7 @@ describe('Super-Block mid-fight interrupt', () => {
     const s = fightWith([0, 1]);
     expect(s.phase).toBe('SUPERPOWER_INTERRUPT');
     expect(s.interrupts).toEqual(['plant']);
-    expect(s.plant.hero.readySuperpower).not.toBeNull();
+    expect(s.plant.hero.readySuperpowers.length).toBeGreaterThan(0);
     expect(s.plant.hero.hp).toBe(20); // lane0 hit fully blocked
     expect(s.fightResume).toEqual({ nextLane: 1 }); // lane1 still pending
   });
@@ -27,7 +27,7 @@ describe('Super-Block mid-fight interrupt', () => {
     const s = reduce(s0, { type: 'ADVANCE_PHASE', side: 'plant' }); // skip
     expect(s.turn).toBe(6); // fight finished, next turn started
     expect(s.phase).toBe('ZOMBIE_PLAY');
-    expect(s.plant.hero.readySuperpower).not.toBeNull(); // kept for later
+    expect(s.plant.hero.readySuperpowers.length).toBeGreaterThan(0); // kept for later
     expect(s.plant.hero.hp).toBe(19); // lane1 imp resolved after resume (meter reset → 1 dmg)
     expect(s.interrupts).toBeUndefined();
     expect(s.fightResume).toBeNull();
@@ -35,9 +35,9 @@ describe('Super-Block mid-fight interrupt', () => {
 
   test('playing the superpower during the interrupt consumes it, then resumes', () => {
     const s0 = fightWith([0]);
-    s0.plant.hero.readySuperpower = 'gs_whirlwind'; // 定点为无目标 SP(bounce random),便于确定性
+    s0.plant.hero.readySuperpowers = ['gs_whirlwind']; // 定点为无目标 SP(bounce random),便于确定性
     const s = reduce(s0, { type: 'PLAY_SUPERPOWER', side: 'plant' });
-    expect(s.plant.hero.readySuperpower).toBeNull(); // consumed
+    expect(s.plant.hero.readySuperpowers).toHaveLength(0); // consumed
     expect(s.turn).toBe(6); // only lane0 → resume completes → next turn
     expect(s.phase).toBe('ZOMBIE_PLAY');
     expect(s.interrupts).toBeUndefined();
@@ -63,7 +63,7 @@ describe('Super-Block mid-fight interrupt', () => {
     const s2 = reduce(s1, { type: 'ADVANCE_PHASE', side: 'plant' }); // plant skips → resume → lane1 pauses
     expect(s2.phase).toBe('SUPERPOWER_INTERRUPT');
     expect(s2.interrupts).toEqual(['zombie']);
-    expect(s2.zombie.hero.readySuperpower).not.toBeNull();
+    expect(s2.zombie.hero.readySuperpowers.length).toBeGreaterThan(0);
 
     const s3 = reduce(s2, { type: 'ADVANCE_PHASE', side: 'zombie' }); // zombie skips → fight done
     expect(s3.phase).toBe('ZOMBIE_PLAY');
@@ -74,7 +74,7 @@ describe('Super-Block mid-fight interrupt', () => {
   test('no interrupt when the meter does not fill during the fight', () => {
     const s = fightWith([0], 0); // meter starts at 0 → imp adds <8 → no grant
     expect(s.phase).toBe('ZOMBIE_PLAY'); // fight ran through, next turn
-    expect(s.plant.hero.readySuperpower).toBeNull();
+    expect(s.plant.hero.readySuperpowers).toHaveLength(0);
     expect(s.interrupts).toBeUndefined();
   });
 });

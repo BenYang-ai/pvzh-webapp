@@ -14,6 +14,7 @@ export interface GameConfig {
   openingDraw: number; // §10.3 起手 draw 4
   drawPerTurn: number; // §10.3 每回合 start draw 1
   handSizeMax: number; // 手牌上限:≥此值时回合开始不再抽牌,且被击中不再充能 Super-Block(视同 bullseye)
+  superpowerHandCost?: number; // 超能力过了即时中断窗口后,当作 trick 从手牌打出的花费(默认 1;中断窗口内免费)
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -29,4 +30,5 @@ export const DEFAULT_CONFIG: GameConfig = {
   openingDraw: 4,
   drawPerTurn: 1,
   handSizeMax: 10,
+  superpowerHandCost: 1,
 };

@@ -18,7 +18,7 @@ export function baseState(partial?: Partial<GameState>): GameState {
       hand: [],
       resource: 0,
       bonusResourceNextTurn: 0,
-      hero: { hp: 20, blockMeter: 0, readySuperpower: null },
+      hero: { hp: 20, blockMeter: 0, readySuperpowers: [] },
     },
     zombie: {
       side: 'zombie',
@@ -26,7 +26,7 @@ export function baseState(partial?: Partial<GameState>): GameState {
       hand: [],
       resource: 0,
       bonusResourceNextTurn: 0,
-      hero: { hp: 20, blockMeter: 0, readySuperpower: null },
+      hero: { hp: 20, blockMeter: 0, readySuperpowers: [] },
     },
     rng: 12345,
     instanceCounter: 0,

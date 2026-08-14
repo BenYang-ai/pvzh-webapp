@@ -14,7 +14,7 @@ export function grantSuperpower(state: GameState, side: Side): void {
   if (cfg.superblock.mode === 'faithful') {
     const [rng, idx] = nextInt(state.rng, 0, sps.length - 1);
     state.rng = rng;
-    hero.readySuperpower = sps[idx].id;
+    hero.readySuperpowers.push(sps[idx].id); // 叠入列表,不覆盖已有(可持有多张)
     state.log.push(`${side} superpower ready: ${sps[idx].name}`);
   } else {
     hero.superpowerOfferedIds = sps.map((s) => s.id);

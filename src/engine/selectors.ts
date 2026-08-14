@@ -76,18 +76,24 @@ export function cardOf(cardId: string): Card {
 }
 
 // —— 超能力(§8)——
-// 本方 play phase 且槽内有 readySuperpower → 可打出。
+// 持有超能力(≥1),且在可打出的窗口(中断队首 / 本方 trick 窗口)→ 可打出。
 export function canPlaySuperpowerNow(state: GameState, side: Side): boolean {
-  if (!state[side].hero.readySuperpower) return false;
+  if (!state[side].hero.readySuperpowers.length) return false;
   // 战斗中断窗口:仅队首一方可即时打出。
   if (state.phase === 'SUPERPOWER_INTERRUPT') return state.interrupts?.[0] === side;
-  // 僵尸超能力视同 trick:ZOMBIE_TRICKS 打(与 reduce.playSuperpower 一致);植物在 PLANT_PLAY 打。
+  // 中断窗口外视同 trick:僵尸在 ZOMBIE_TRICKS 打(与 reduce.playSuperpower 一致);植物在 PLANT_PLAY 打。
   return (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_TRICKS');
 }
 
-export function readySuperpower(state: GameState, side: Side): Superpower | null {
-  const id = state[side].hero.readySuperpower;
-  return id ? getSuperpower(id) : null;
+// 本方当前持有的所有待用超能力(可叠多张)。
+export function readySuperpowers(state: GameState, side: Side): Superpower[] {
+  return state[side].hero.readySuperpowers.map(getSuperpower);
+}
+
+// 打出一张超能力的花费:中断窗口内免费,否则当作 trick 花 superpowerHandCost(默认 1)。
+export function superpowerCost(state: GameState, side: Side): number {
+  if (state.phase === 'SUPERPOWER_INTERRUPT' && state.interrupts?.[0] === side) return 0;
+  return state.config.superpowerHandCost ?? 1;
 }
 
 export function offeredSuperpowers(state: GameState, side: Side): Superpower[] {

@@ -10,7 +10,8 @@ import {
   canPlayTrickNow,
   emptyLanes,
   offeredSuperpowers,
-  readySuperpower,
+  readySuperpowers,
+  superpowerCost,
   superpowerTargets,
   trickTargets,
 } from '../engine/selectors.ts';
@@ -118,9 +119,9 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
           setSpSel({ ...spSel, target: { lane, side } });
           return;
         }
-        apply({ type: 'PLAY_SUPERPOWER', side: spSel.side, target: spSel.target, toLane: lane });
+        apply({ type: 'PLAY_SUPERPOWER', side: spSel.side, superpowerId: sp.id, target: spSel.target, toLane: lane });
       } else {
-        apply({ type: 'PLAY_SUPERPOWER', side: spSel.side, target: { lane, side } });
+        apply({ type: 'PLAY_SUPERPOWER', side: spSel.side, superpowerId: sp.id, target: { lane, side } });
       }
       setSpSel(null);
       return;
@@ -135,13 +136,11 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
     setSel(null);
   }
 
-  function startSuperpower(side: Side) {
+  function startSuperpower(side: Side, sp: Superpower) {
     if (!mine(side)) return;
-    const sp = readySuperpower(state, side);
-    if (!sp) return;
     setSel(null);
     if (sp.targeting === 'none') {
-      apply({ type: 'PLAY_SUPERPOWER', side });
+      apply({ type: 'PLAY_SUPERPOWER', side, superpowerId: sp.id });
       return;
     }
     setSpSel({ side, sp });
@@ -241,7 +240,7 @@ function SuperpowerControls({
   active: Side | null;
   viewSide?: Side;
   spSel: SPSelection;
-  onPlay: (side: Side) => void;
+  onPlay: (side: Side, sp: Superpower) => void;
   onPick: (side: Side, spId: string) => void;
   onCancel: () => void;
 }) {
@@ -251,14 +250,16 @@ function SuperpowerControls({
     .filter((o) => o.list.length > 0);
 
   const canCast = active && (viewSide == null || active === viewSide) && canPlaySuperpowerNow(state, active);
-  const castable = canCast ? readySuperpower(state, active!) : null;
+  // 当前可施放的一方持有的 SP(可叠多张)→ 每张一个按钮;买不起(资源不足)则置灰。
+  const castCost = active ? superpowerCost(state, active) : 0;
+  const castable = canCast ? readySuperpowers(state, active!) : [];
 
-  // 已充能但当前不可施放的 SP(非本方 play phase)→ 显示只读“charged”提示。
+  // 持有但当前不可施放的 SP(非本方 trick 窗口)→ 显示只读“charged”提示。
   const charged = visibleSides
-    .map((side) => ({ side, sp: readySuperpower(state, side) }))
-    .filter((c) => c.sp && !(castable && active === c.side));
+    .filter((side) => !(canCast && active === side))
+    .flatMap((side) => readySuperpowers(state, side).map((sp) => ({ side, sp })));
 
-  if (!spSel && !castable && offers.length === 0 && charged.length === 0) return null;
+  if (!spSel && castable.length === 0 && offers.length === 0 && charged.length === 0) return null;
 
   const sideLabel = (s: Side) => (s === 'plant' ? 'Plants' : 'Zombies');
 
@@ -279,23 +280,29 @@ function SuperpowerControls({
           </button>
         </>
       ) : (
-        castable && (
-          <button
-            onClick={() => onPlay(active!)}
-            className="rounded-md bg-sky-700 px-3 py-1 font-semibold hover:bg-sky-600"
-          >
-            ⚡ {sideLabel(active!)}: {castable.name}
-          </button>
-        )
+        castable.map((sp) => {
+          const affordable = castCost <= state[active!].resource;
+          return (
+            <button
+              key={sp.id}
+              disabled={!affordable}
+              onClick={() => affordable && onPlay(active!, sp)}
+              className="rounded-md bg-sky-700 px-3 py-1 font-semibold hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-40"
+              title={affordable ? undefined : `Needs ${castCost} resource`}
+            >
+              ⚡ {sideLabel(active!)}: {sp.name} {castCost > 0 ? `(${castCost})` : '(free)'}
+            </button>
+          );
+        })
       )}
 
-      {charged.map(({ side, sp }) => (
+      {charged.map(({ side, sp }, i) => (
         <span
-          key={`charged-${side}`}
+          key={`charged-${side}-${sp.id}-${i}`}
           className="flex items-center gap-1 rounded bg-[#1c2733] px-2 py-0.5 text-xs text-[#8fae95]"
-          title="Charged — playable on this side's play phase"
+          title="Charged — playable in this side's trick window"
         >
-          ⚡ {sideLabel(side)}: {sp!.name} <span className="text-[#5f7566]">(charged)</span>
+          ⚡ {sideLabel(side)}: {sp.name} <span className="text-[#5f7566]">(charged)</span>
         </span>
       ))}
 

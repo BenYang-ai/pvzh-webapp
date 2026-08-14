@@ -115,7 +115,9 @@ export type Lane = {
 export interface HeroState {
   hp: number;
   blockMeter: number; // 0..blockMeterMax
-  readySuperpower: string | null; // SP id 或 null
+  // 待用超能力(可叠多张)。Super-Block 授予即入列;当作 trick 卡:中断窗口内免费即打,
+  // 之后留在列表里,在本方 trick 窗口花 1 资源打出(见 reduce.playSuperpower)。
+  readySuperpowers: string[]; // SP id 列表(队尾=最近授予)
   superpowerOfferedIds?: string[]; // pick 模式:待玩家选择的候选
 }
 
@@ -148,6 +150,6 @@ export interface GameState {
 export type GameAction =
   | { type: 'PLAY_FIGHTER'; side: Side; instanceId: string; lane: number }
   | { type: 'PLAY_TRICK'; side: Side; instanceId: string; target?: { lane: number; side: Side }; toLane?: number }
-  | { type: 'PLAY_SUPERPOWER'; side: Side; target?: { lane: number; side: Side }; toLane?: number } // M3
+  | { type: 'PLAY_SUPERPOWER'; side: Side; superpowerId?: string; target?: { lane: number; side: Side }; toLane?: number } // M3;superpowerId 省略时取列表首个
   | { type: 'PICK_SUPERPOWER'; side: Side; superpowerId: string } // M3 pick 模式
   | { type: 'ADVANCE_PHASE'; side: Side };

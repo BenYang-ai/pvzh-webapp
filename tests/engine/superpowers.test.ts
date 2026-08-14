@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { reduce } from '../../src/engine/reduce.ts';
+import { grantSuperpower } from '../../src/engine/superpowers.ts';
 import { hasKeyword } from '../../src/engine/deck.ts';
 import { baseState, placeFighter } from './helpers.ts';
 
 // 便捷:给 hero 装上待用超能力
 function withSP(phase: 'PLANT_PLAY' | 'ZOMBIE_PLAY' | 'ZOMBIE_TRICKS', side: 'plant' | 'zombie', spId: string) {
   const s = baseState({ phase });
-  s[side].hero.readySuperpower = spId;
+  s[side].hero.readySuperpowers = [spId];
+  s[side].resource = 5; // 从手牌打出 SP 需 1 资源(中断窗口外),给足
   return s;
 }
 
@@ -16,7 +18,7 @@ describe('Green Shadow superpowers', () => {
     placeFighter(s, 2, 'zombie', 'z_spacecowboy'); // 3/5, armored 无(strikethrough) → 5 dmg 致死
     const ns = reduce(s, { type: 'PLAY_SUPERPOWER', side: 'plant' });
     expect(ns.lanes[2].zombie).toBeNull();
-    expect(ns.plant.hero.readySuperpower).toBeNull(); // 用掉
+    expect(ns.plant.hero.readySuperpowers).toHaveLength(0); // 用掉
   });
 
   it('Precision Blast hits zombie hero for 5 when mid lane empty', () => {
@@ -138,7 +140,7 @@ describe('Super Brainz superpowers', () => {
 describe('superpower gating', () => {
   it('cannot play a superpower outside own play phase', () => {
     const s = baseState({ phase: 'ZOMBIE_PLAY' });
-    s.plant.hero.readySuperpower = 'gs_embiggen';
+    s.plant.hero.readySuperpowers = ['gs_embiggen'];
     placeFighter(s, 0, 'plant', 'p_peashooter');
     expect(() =>
       reduce(s, { type: 'PLAY_SUPERPOWER', side: 'plant', target: { lane: 0, side: 'plant' } }),
@@ -159,6 +161,36 @@ describe('superpower gating', () => {
   it('zombie can play a superpower during ZOMBIE_TRICKS', () => {
     const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_telepathy');
     const ns = reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie' });
-    expect(ns.zombie.hero.readySuperpower).toBeNull(); // 打出后清空
+    expect(ns.zombie.hero.readySuperpowers).toHaveLength(0); // 打出后清空
+  });
+});
+
+// 超能力当作 trick 卡:可叠多张(不再被新授予覆盖),从手牌打出花 1 资源,中断窗口内免费。
+describe('superpowers behave like stackable trick cards', () => {
+  it('a new grant stacks instead of overwriting an unplayed one', () => {
+    const s = baseState({ phase: 'ZOMBIE_TRICKS' });
+    s.zombie.hero.readySuperpowers = ['sb_cut_down'];
+    grantSuperpower(s, 'zombie'); // faithful → 再入一张
+    expect(s.zombie.hero.readySuperpowers).toHaveLength(2);
+    expect(s.zombie.hero.readySuperpowers[0]).toBe('sb_cut_down'); // 旧的没丢
+  });
+
+  it('playing one by superpowerId leaves the others held', () => {
+    const s = baseState({ phase: 'ZOMBIE_TRICKS' });
+    s.zombie.resource = 5;
+    s.zombie.hero.readySuperpowers = ['sb_telepathy', 'sb_super_stench'];
+    const ns = reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie', superpowerId: 'sb_telepathy' });
+    expect(ns.zombie.hero.readySuperpowers).toEqual(['sb_super_stench']);
+  });
+
+  it('costs 1 resource from hand and is rejected when unaffordable', () => {
+    const s = baseState({ phase: 'ZOMBIE_TRICKS' });
+    s.zombie.resource = 0;
+    s.zombie.hero.readySuperpowers = ['sb_telepathy'];
+    expect(() => reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie' })).toThrow(/not enough resource/);
+
+    s.zombie.resource = 1;
+    const ns = reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie' });
+    expect(ns.zombie.resource).toBe(0); // 花掉 1
   });
 });

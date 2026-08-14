@@ -39,7 +39,7 @@ describe('hand size limit (§super-block)', () => {
     applyHeroDamage(s, 'plant', 3, { isFighterHit: true });
 
     expect(s.plant.hero.blockMeter).toBe(7); // 未充能
-    expect(s.plant.hero.readySuperpower).toBeNull(); // 未授予 SP
+    expect(s.plant.hero.readySuperpowers).toHaveLength(0); // 未授予 SP
     expect(s.plant.hero.hp).toBe(17); // 伤害照常穿透
   });
 
@@ -51,7 +51,7 @@ describe('hand size limit (§super-block)', () => {
     applyHeroDamage(s, 'plant', 3, { isFighterHit: true });
 
     expect(s.plant.hero.blockMeter).toBe(0); // 充满 → 清零
-    expect(s.plant.hero.readySuperpower).not.toBeNull(); // 授予 SP
+    expect(s.plant.hero.readySuperpowers.length).toBeGreaterThan(0); // 授予 SP
     expect(s.plant.hero.hp).toBe(20); // 完全格挡
   });
 });
