@@ -25,7 +25,7 @@ export interface InitOptions {
 }
 
 function newHero(config: GameConfig): HeroState {
-  return { hp: config.heroStartHp, blockMeter: 0, readySuperpower: null };
+  return { hp: config.heroStartHp, blockMeter: 0, readySuperpowers: [] };
 }
 
 export function createInitialState(opts: InitOptions): GameState {
@@ -103,7 +103,7 @@ function startTurn(state: GameState, config: GameConfig, turn: number): void {
   if (config.superblock.mode === 'off' && turn % config.superblockOffEveryNTurns === 0) {
     for (const side of ['plant', 'zombie'] as Side[]) {
       const hero = player(state, side).hero;
-      if (!hero.readySuperpower && !hero.superpowerOfferedIds?.length) grantSuperpower(state, side);
+      if (!hero.readySuperpowers.length && !hero.superpowerOfferedIds?.length) grantSuperpower(state, side);
     }
   }
   state.phase = 'ZOMBIE_PLAY';
@@ -250,24 +250,30 @@ function playSuperpower(
   config: GameConfig,
 ): void {
   const { side } = action;
-  // SUPERPOWER_INTERRUPT:仅队首一方可即时打出(战斗中断窗口,SP-only)。
+  // 超能力当作 trick 卡。SUPERPOWER_INTERRUPT:仅队首一方可即时打出(战斗中断窗口,免费)。
   const inInterrupt = state.phase === 'SUPERPOWER_INTERRUPT' && state.interrupts?.[0] === side;
-  // 僵尸超能力视同 trick(与 PR#7 的 ZOMBIE_TRICKS-only 分歧一致):只能在 ZOMBIE_TRICKS
-  // 或战斗中断窗口打出,不能在 ZOMBIE_PLAY 打。植物在自己的 PLANT_PLAY 打(植物无独立 trick 相位)。
-  const okPhase =
-    inInterrupt ||
-    (side === 'plant' && state.phase === 'PLANT_PLAY') ||
-    (side === 'zombie' && state.phase === 'ZOMBIE_TRICKS');
+  // 中断窗口外则视同 trick:僵尸只能在 ZOMBIE_TRICKS 打(与 PR#7 分歧一致),植物在 PLANT_PLAY 打。
+  const okPhase = inInterrupt || canPlayTrick(side, state.phase);
   if (!okPhase) throw new IllegalActionError(`cannot play superpower in ${state.phase}`);
 
-  const hero = player(state, side).hero;
-  if (!hero.readySuperpower) throw new IllegalActionError('no superpower ready');
-  const sp = getSuperpower(hero.readySuperpower);
+  const p = player(state, side);
+  const hero = p.hero;
+  if (!hero.readySuperpowers.length) throw new IllegalActionError('no superpower ready');
+  // 未指定则默认打出最近授予的(队尾),否则按 id 从列表取。
+  const spId = action.superpowerId ?? hero.readySuperpowers[hero.readySuperpowers.length - 1];
+  const idx = hero.readySuperpowers.lastIndexOf(spId);
+  if (idx === -1) throw new IllegalActionError(`superpower not ready: ${spId}`);
+  const sp = getSuperpower(spId);
   if (sp.faction !== side) throw new IllegalActionError('wrong faction superpower');
 
+  // 花费:中断窗口内免费(Super-Block 奖励),之后当作 1 费 trick 从“手牌”打出。
+  const cost = inInterrupt ? 0 : config.superpowerHandCost ?? 1;
+  if (cost > p.resource) throw new IllegalActionError(`not enough resource (${p.resource}/${cost})`);
+
   validateSuperpowerTarget(state, side, sp, action);
+  hero.readySuperpowers.splice(idx, 1);
+  p.resource -= cost;
   applySuperpower(state, side, sp, action);
-  hero.readySuperpower = null;
 
   if (inInterrupt) finishInterruptStep(state, config); // 打出后续算战斗
 }
@@ -322,7 +328,7 @@ function pickSuperpower(state: GameState, action: Extract<GameAction, { type: 'P
   const hero = player(state, action.side).hero;
   const offered = hero.superpowerOfferedIds;
   if (!offered?.includes(action.superpowerId)) throw new IllegalActionError('superpower not offered');
-  hero.readySuperpower = action.superpowerId;
+  hero.readySuperpowers.push(action.superpowerId);
   hero.superpowerOfferedIds = undefined;
 }
 

@@ -41,7 +41,7 @@ describe('Super-Block full → block + grant', () => {
     expect(s.plant.hero.hp).toBe(20); // 完全格挡,无伤
     expect(s.plant.hero.blockMeter).toBe(0);
     const ids = superpowersFor('plant').map((sp) => sp.id);
-    expect(ids).toContain(s.plant.hero.readySuperpower);
+    expect(ids).toContain(s.plant.hero.readySuperpowers[0]);
   });
 
   it('pick: reaching ≥8 blocks the hit and offers all 4 (no auto-grant)', () => {
@@ -49,13 +49,13 @@ describe('Super-Block full → block + grant', () => {
     s.zombie.hero.blockMeter = 7;
     applyHeroDamage(s, 'zombie', 5, { isFighterHit: true });
     expect(s.zombie.hero.hp).toBe(20);
-    expect(s.zombie.hero.readySuperpower).toBeNull();
+    expect(s.zombie.hero.readySuperpowers).toHaveLength(0);
     expect(s.zombie.hero.superpowerOfferedIds).toHaveLength(4);
 
     // 玩家自选其一 → 进 readySuperpower
     const chosen = s.zombie.hero.superpowerOfferedIds![2];
     const ns = reduce(s, { type: 'PICK_SUPERPOWER', side: 'zombie', superpowerId: chosen });
-    expect(ns.zombie.hero.readySuperpower).toBe(chosen);
+    expect(ns.zombie.hero.readySuperpowers).toContain(chosen);
     expect(ns.zombie.hero.superpowerOfferedIds).toBeUndefined();
   });
 
