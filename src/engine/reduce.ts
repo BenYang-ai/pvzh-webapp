@@ -252,10 +252,12 @@ function playSuperpower(
   const { side } = action;
   // SUPERPOWER_INTERRUPT:仅队首一方可即时打出(战斗中断窗口,SP-only)。
   const inInterrupt = state.phase === 'SUPERPOWER_INTERRUPT' && state.interrupts?.[0] === side;
+  // 僵尸超能力视同 trick(与 PR#7 的 ZOMBIE_TRICKS-only 分歧一致):只能在 ZOMBIE_TRICKS
+  // 或战斗中断窗口打出,不能在 ZOMBIE_PLAY 打。植物在自己的 PLANT_PLAY 打(植物无独立 trick 相位)。
   const okPhase =
     inInterrupt ||
     (side === 'plant' && state.phase === 'PLANT_PLAY') ||
-    (side === 'zombie' && state.phase === 'ZOMBIE_PLAY');
+    (side === 'zombie' && state.phase === 'ZOMBIE_TRICKS');
   if (!okPhase) throw new IllegalActionError(`cannot play superpower in ${state.phase}`);
 
   const hero = player(state, side).hero;

@@ -30,7 +30,8 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 Invoke the **`pvzh-debug`** project skill (`.claude/skills/pvzh-debug/SKILL.md`) when Ben pastes a replay log — it encodes the whole loop (reproduce → verify real bug → fix → regression test → PR/squash-merge → offer Load-log resume).
 
 ## Known bugs / next fixes
-- _(none open)_
+- **OPEN — superpower single-slot overwrite.** `hero.readySuperpower` is one slot; a new Super-Block grant blindly overwrites an unplayed one (`superpowers.ts` `grantSuperpower`), so a held SP is lost and you can never hold >1. Ben wants to be able to hold multiple (real PvZH puts SPs in hand and they stack). Deferred by Ben's call (2026-08-14) — needs a model change: `readySuperpower: string | null` → a list (or a hand entry), plus `reduce`/`selectors`/`Board` updates. Repro: game-1 log, zombie granted `sb_cut_down` at the turn-boundary interrupt, then a later interrupt grants `sb_carried_away` which overwrites it.
+- **zombie superpower phase gating FIXED (2026-08-14, PR pending).** Zombie SP was playable in `ZOMBIE_PLAY`; now `ZOMBIE_TRICKS`-only (+ fight interrupt), mirroring the PR#7 zombie-tricks divergence. Plants unchanged (`PLANT_PLAY`, no separate trick phase). Fixed both `reduce.playSuperpower` and `selectors.canPlaySuperpowerNow`.
 - **`bullseye` FIXED (Ben, 2026-08-13, PR pending).** Was hero-seeking (skipped lane fighter). Now attacks normally — hits the fighter in front if present, else the hero; its only special effect is bypassing the Super-Block Meter on **hero** hits (`isFighterHit:false` only when bullseye reaches a hero). Deleted the bullseye early-return in `performAttack`; normal hero-hit branch passes `isFighterHit: !bullseye`. Verified with the Cactus-vs-Smelly repro (Cactus deals 2 → Smelly 4→2, then dies to Smelly's deadly).
 
 ## Architecture (files)
