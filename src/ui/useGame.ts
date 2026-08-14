@@ -11,14 +11,17 @@ export function useGame(initialSeed: string) {
   const [error, setError] = useState<string | null>(null);
   const actionsRef = useRef<GameAction[]>([]);
 
-  function apply(action: GameAction): void {
+  // 返回应用后的新 state(供动画层拿到 combatEvents);非法 action 返回 null。
+  function apply(action: GameAction): GameState | null {
     try {
       const next = reduce(state, action);
       actionsRef.current.push(action); // 仅记录成功的 action(reduce 抛错不入日志)
       setError(null);
       setState(next);
+      return next;
     } catch (e) {
       setError((e as Error).message);
+      return null;
     }
   }
 

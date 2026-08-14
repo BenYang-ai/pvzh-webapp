@@ -152,6 +152,7 @@ function finishInterruptStep(state: GameState, config: GameConfig): void {
 export function reduce(prev: GameState, action: GameAction, configOverride: GameConfig = DEFAULT_CONFIG): GameState {
   if (prev.phase === 'GAME_OVER') throw new IllegalActionError('game over');
   const state: GameState = structuredClone(prev);
+  state.combatEvents = []; // 每次 apply 只保留本 action 产出的战斗动画事件(见 CombatEvent)
   // 规则配置随 state 走(联网两端一致);老式 config 入参仅作缺省兜底。
   const config: GameConfig = prev.config ?? configOverride;
 

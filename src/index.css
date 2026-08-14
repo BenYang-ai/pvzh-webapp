@@ -16,3 +16,33 @@ body {
   color: #e8f0e8;
   font-family: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
+
+/* 战斗伤害数字:目标上方浮现 → 上升淡出(见 useCombatAnimation / Board）。 */
+.dmg-float {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  transform: translateX(-50%);
+  font-weight: 800;
+  font-size: 1.1rem;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  z-index: 20;
+  animation: dmg-float-rise 0.45s ease-out forwards;
+}
+
+@keyframes dmg-float-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.7);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -4px) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -20px) scale(1);
+  }
+}

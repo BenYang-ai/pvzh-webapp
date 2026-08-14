@@ -146,7 +146,28 @@ export interface GameState {
   // —— FIGHT 中断续算(SUPERPOWER_INTERRUPT 期间有值)——
   fightResume?: { nextLane: number } | null; // resolveFight 从哪条 lane 续算
   interrupts?: Side[]; // 本次 fight 中因 Super-Block 获得超能力、待处理的一方(队列,队首优先)
+  combatEvents?: CombatEvent[]; // 本次 resolveFight 片段产出的动画事件(见 CombatEvent);每次调用清空重填
 }
+
+// —— 战斗动画事件(§UX)。resolveFight 每步 push 一条,供本地 UI 逐拍回放。——
+// 纯数据、确定性;引擎逻辑不读它,只追加。每次 resolveFight 调用开头清空(见 combat.ts)。
+// 一次 apply 产出的 events = 该战斗片段(中断会把整场切成多段 reduce,天然分段动画)。
+export type CombatEvent =
+  | { kind: 'reveal'; lane: number; instanceId: string } // gravestone 翻面
+  | { kind: 'laneStart'; lane: number } // 该 lane 开始结算 → 高亮/闪烁
+  | {
+      kind: 'hit';
+      lane: number;
+      attacker: Side;
+      target: 'fighter' | 'hero';
+      instanceId?: string; // target==='fighter' 时被击 fighter 的 instanceId
+      heroSide?: Side; // target==='hero' 时受击 hero
+      amount: number; // 实际扣除的血量(护甲/免伤后;用于飘 -N)
+      hpAfter: number; // 该目标受击后的 hp
+    }
+  | { kind: 'blocked'; lane: number; heroSide: Side } // Super-Block 完全格挡
+  | { kind: 'destroy'; lane: number; side: Side; instanceId: string } // fighter 被摧毁 → 淡出
+  | { kind: 'frenzy'; lane: number; instanceId: string }; // frenzy 触发 bonus attack
 
 // —— Actions ——
 export type GameAction =
