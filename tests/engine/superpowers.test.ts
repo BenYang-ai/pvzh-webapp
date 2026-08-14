@@ -4,7 +4,7 @@ import { hasKeyword } from '../../src/engine/deck.ts';
 import { baseState, placeFighter } from './helpers.ts';
 
 // 便捷:给 hero 装上待用超能力
-function withSP(phase: 'PLANT_PLAY' | 'ZOMBIE_PLAY', side: 'plant' | 'zombie', spId: string) {
+function withSP(phase: 'PLANT_PLAY' | 'ZOMBIE_PLAY' | 'ZOMBIE_TRICKS', side: 'plant' | 'zombie', spId: string) {
   const s = baseState({ phase });
   s[side].hero.readySuperpower = spId;
   return s;
@@ -61,7 +61,7 @@ describe('Green Shadow superpowers', () => {
 
 describe('Super Brainz superpowers', () => {
   it('Carried Away moves a zombie, +1/+1, bonus-attacks the hero of the new lane', () => {
-    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_carried_away');
+    const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_carried_away');
     placeFighter(s, 0, 'zombie', 'z_imp'); // 1/1
     const ns = reduce(s, {
       type: 'PLAY_SUPERPOWER',
@@ -76,7 +76,7 @@ describe('Super Brainz superpowers', () => {
   });
 
   it('Carried Away bonus attack hits a plant blocking the destination lane', () => {
-    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_carried_away');
+    const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_carried_away');
     placeFighter(s, 0, 'zombie', 'z_imp'); // 1/1 → 2/2
     placeFighter(s, 1, 'plant', 'p_peashooter'); // 1/1,占 plant 侧 lane1
     const ns = reduce(s, {
@@ -91,14 +91,14 @@ describe('Super Brainz superpowers', () => {
   });
 
   it('Telepathy draws 2', () => {
-    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_telepathy');
+    const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_telepathy');
     const before = s.zombie.hand.length;
     const ns = reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie' });
     expect(ns.zombie.hand.length).toBe(before + 2);
   });
 
   it('Cut Down destroys a plant with attack ≥ 5', () => {
-    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_cut_down');
+    const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_cut_down');
     const f = placeFighter(s, 0, 'plant', 'p_snapdragon');
     f.attack = 5;
     const ns = reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie', target: { lane: 0, side: 'plant' } });
@@ -106,7 +106,7 @@ describe('Super Brainz superpowers', () => {
   });
 
   it('Cut Down cannot target an untrickable plant (even at attack ≥ 5)', () => {
-    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_cut_down');
+    const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_cut_down');
     const f = placeFighter(s, 0, 'plant', 'p_snapdragon');
     f.attack = 5;
     f.keywords.push('untrickable');
@@ -116,7 +116,7 @@ describe('Super Brainz superpowers', () => {
   });
 
   it('Cut Down rejects a plant with attack < 5', () => {
-    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_cut_down');
+    const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_cut_down');
     placeFighter(s, 0, 'plant', 'p_snapdragon'); // attack 3
     expect(() =>
       reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie', target: { lane: 0, side: 'plant' } }),
@@ -124,7 +124,7 @@ describe('Super Brainz superpowers', () => {
   });
 
   it('Super Stench gives every zombie deadly and draws 1', () => {
-    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_super_stench');
+    const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_super_stench');
     placeFighter(s, 0, 'zombie', 'z_imp');
     placeFighter(s, 1, 'zombie', 'z_conehead');
     const before = s.zombie.hand.length;
@@ -148,5 +148,17 @@ describe('superpower gating', () => {
   it('cannot play when no superpower is ready', () => {
     const s = baseState({ phase: 'PLANT_PLAY' });
     expect(() => reduce(s, { type: 'PLAY_SUPERPOWER', side: 'plant' })).toThrow(/no superpower ready/);
+  });
+
+  // 僵尸超能力视同 trick:不能在 ZOMBIE_PLAY 打,只能在 ZOMBIE_TRICKS(或战斗中断)打。
+  it('zombie cannot play a superpower during ZOMBIE_PLAY', () => {
+    const s = withSP('ZOMBIE_PLAY', 'zombie', 'sb_telepathy');
+    expect(() => reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie' })).toThrow(/cannot play superpower/);
+  });
+
+  it('zombie can play a superpower during ZOMBIE_TRICKS', () => {
+    const s = withSP('ZOMBIE_TRICKS', 'zombie', 'sb_telepathy');
+    const ns = reduce(s, { type: 'PLAY_SUPERPOWER', side: 'zombie' });
+    expect(ns.zombie.hero.readySuperpower).toBeNull(); // 打出后清空
   });
 });

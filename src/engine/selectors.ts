@@ -81,7 +81,8 @@ export function canPlaySuperpowerNow(state: GameState, side: Side): boolean {
   if (!state[side].hero.readySuperpower) return false;
   // 战斗中断窗口:仅队首一方可即时打出。
   if (state.phase === 'SUPERPOWER_INTERRUPT') return state.interrupts?.[0] === side;
-  return (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_PLAY');
+  // 僵尸超能力视同 trick:ZOMBIE_TRICKS 打(与 reduce.playSuperpower 一致);植物在 PLANT_PLAY 打。
+  return (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_TRICKS');
 }
 
 export function readySuperpower(state: GameState, side: Side): Superpower | null {
