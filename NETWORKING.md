@@ -20,8 +20,11 @@ create table if not exists public.games (
   id text primary key,
   rev bigint not null default 0,
   state jsonb not null,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  host_side text  -- 建房方执方(第二人自动分到另一边);2026-08-15 席位大厅新增
 );
+-- 老库补列(表已存在时):
+alter table public.games add column if not exists host_side text;
 
 -- realtime broadcast of row changes
 alter publication supabase_realtime add table public.games;
