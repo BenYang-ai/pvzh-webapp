@@ -6,17 +6,16 @@ import {
   canAfford,
   canPlayCardNow,
   canPlayFighterNow,
-  canPlaySuperpowerNow,
   canPlayTrickNow,
   castableSuperpowers,
   emptyLanes,
   offeredSuperpowers,
   readySuperpowers,
-  superpowerCost,
+  superpowerCostFor,
   superpowerTargets,
   trickTargets,
 } from '../engine/selectors.ts';
-import { CardFace } from './CardFace.tsx';
+import { CardFace, SuperpowerFace } from './CardFace.tsx';
 import type { CombatFx } from './useCombatAnimation.ts';
 
 const NO_FX: CombatFx = { flashLane: null, dying: new Set(), blockedHeroes: new Set(), floats: [] };
@@ -175,22 +174,36 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
   return (
     <div className="flex aspect-[4/3] max-h-full w-full max-w-[1100px] flex-col gap-1.5 rounded-xl bg-[#16241a] p-3 text-[#e8f0e8] shadow-lg">
       <HeroBar state={state} side="zombie" active={active === 'zombie'} youAre={viewSide} fx={fx} />
-      <HandRow state={state} side="zombie" sel={sel} viewSide={viewSide} onSelect={selectHandCard} />
+      <HandRow
+        state={state}
+        side="zombie"
+        sel={sel}
+        spSel={spSel}
+        viewSide={viewSide}
+        onSelect={selectHandCard}
+        onPlaySuperpower={startSuperpower}
+      />
 
       <div className="flex flex-1 flex-col justify-center gap-1.5">
         <LaneRow state={state} side="zombie" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} fx={fx} />
         <LaneRow state={state} side="plant" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} fx={fx} />
       </div>
 
-      <HandRow state={state} side="plant" sel={sel} viewSide={viewSide} onSelect={selectHandCard} />
+      <HandRow
+        state={state}
+        side="plant"
+        sel={sel}
+        spSel={spSel}
+        viewSide={viewSide}
+        onSelect={selectHandCard}
+        onPlaySuperpower={startSuperpower}
+      />
       <HeroBar state={state} side="plant" active={active === 'plant'} youAre={viewSide} fx={fx} />
 
       <SuperpowerControls
         state={state}
-        active={active}
         viewSide={viewSide}
         spSel={spSel}
-        onPlay={startSuperpower}
         onPick={pickSuperpower}
         onCancel={() => setSpSel(null)}
       />
@@ -231,21 +244,17 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
   );
 }
 
-// 超能力控制条:待用 SP 施放按钮、施放中提示、pick 模式候选。单侧视角只显示本方。
+// 超能力提示条:施放中的目标提示 + pick 模式候选(施放按钮已移入手牌行)。单侧视角只显示本方。
 function SuperpowerControls({
   state,
-  active,
   viewSide,
   spSel,
-  onPlay,
   onPick,
   onCancel,
 }: {
   state: GameState;
-  active: Side | null;
   viewSide?: Side;
   spSel: SPSelection;
-  onPlay: (side: Side, sp: Superpower) => void;
   onPick: (side: Side, spId: string) => void;
   onCancel: () => void;
 }) {
@@ -254,26 +263,14 @@ function SuperpowerControls({
     .map((side) => ({ side, list: offeredSuperpowers(state, side) }))
     .filter((o) => o.list.length > 0);
 
-  const canCast = active && (viewSide == null || active === viewSide) && canPlaySuperpowerNow(state, active);
-  // 当前可施放的 SP:中断窗口只含“本回合刚授予”那张(免费),trick 窗口=全部持有(1 费)。买不起则置灰。
-  const castCost = active ? superpowerCost(state, active) : 0;
-  const castable = canCast ? castableSuperpowers(state, active!) : [];
-  const castableIds = new Set(castable.map((sp) => sp.id));
-
-  // 持有但当前不可即时施放的 SP(旧超能力 / 非本方窗口)→ 显示只读“charged”提示。
-  const charged = visibleSides.flatMap((side) =>
-    readySuperpowers(state, side)
-      .filter((sp) => !(active === side && castableIds.has(sp.id)))
-      .map((sp) => ({ side, sp })),
-  );
-
-  if (!spSel && castable.length === 0 && offers.length === 0 && charged.length === 0) return null;
+  // 超能力施放按钮已移入手牌行(HandRow);本条只保留:施放中的目标提示 + pick 模式候选。
+  if (!spSel && offers.length === 0) return null;
 
   const sideLabel = (s: Side) => (s === 'plant' ? 'Plants' : 'Zombies');
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#141d2a] px-3 py-1.5 text-sm">
-      {spSel ? (
+      {spSel && (
         <>
           <span className="text-sky-200">
             ⚡ {spSel.sp.name}:{' '}
@@ -287,32 +284,7 @@ function SuperpowerControls({
             Cancel
           </button>
         </>
-      ) : (
-        castable.map((sp) => {
-          const affordable = castCost <= state[active!].resource;
-          return (
-            <button
-              key={sp.id}
-              disabled={!affordable}
-              onClick={() => affordable && onPlay(active!, sp)}
-              className="rounded-md bg-sky-700 px-3 py-1 font-semibold hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-40"
-              title={affordable ? undefined : `Needs ${castCost} resource`}
-            >
-              ⚡ {sideLabel(active!)}: {sp.name} {castCost > 0 ? `(${castCost})` : '(free)'}
-            </button>
-          );
-        })
       )}
-
-      {charged.map(({ side, sp }, i) => (
-        <span
-          key={`charged-${side}-${sp.id}-${i}`}
-          className="flex items-center gap-1 rounded bg-[#1c2733] px-2 py-0.5 text-xs text-[#8fae95]"
-          title="Charged — playable in this side's trick window"
-        >
-          ⚡ {sideLabel(side)}: {sp.name} <span className="text-[#5f7566]">(charged)</span>
-        </span>
-      ))}
 
       {offers.map(({ side, list }) => (
         <span key={side} className="flex items-center gap-1">
@@ -504,21 +476,31 @@ function HandRow({
   state,
   side,
   sel,
+  spSel,
   viewSide,
   onSelect,
+  onPlaySuperpower,
 }: {
   state: GameState;
   side: Side;
   sel: Selection;
+  spSel: SPSelection;
   viewSide?: Side;
   onSelect: (side: Side, instanceId: string) => void;
+  onPlaySuperpower: (side: Side, sp: Superpower) => void;
 }) {
   const hand = state[side].hand;
   const hidden = viewSide != null && side !== viewSide; // 对手手牌不可见
+  // 超能力现在当作手牌显示在手牌行尾:授予即入手,cost 角标随中断/trick 窗口变化。
+  const superpowers = readySuperpowers(state, side);
+  const canView = viewSide == null || side === viewSide;
+  const castableIds = new Set(castableSuperpowers(state, side).map((sp) => sp.id));
 
   return (
     <div className="flex min-h-[64px] items-center gap-1 overflow-x-auto rounded-lg bg-[#0f1a12] px-2 py-1">
-      {hand.length === 0 && <span className="text-xs text-[#3f5a47]">— empty hand —</span>}
+      {hand.length === 0 && superpowers.length === 0 && (
+        <span className="text-xs text-[#3f5a47]">— empty hand —</span>
+      )}
       {hidden
         ? hand.map((ref) => (
             <div key={ref.instanceId} className="h-14 w-11 shrink-0">
@@ -542,6 +524,34 @@ function HandRow({
               </button>
             );
           })}
+
+      {/* 超能力牌:owner 视角显示卡面(可施放则点亮),对手视角显示牌背。 */}
+      {superpowers.map((sp) =>
+        hidden ? (
+          <div key={sp.id} className="h-14 w-11 shrink-0">
+            <CardBack />
+          </div>
+        ) : (
+          (() => {
+            const cost = superpowerCostFor(state, side, sp.id);
+            const playable = canView && castableIds.has(sp.id) && cost <= state[side].resource;
+            const selected = spSel?.side === side && spSel.sp.id === sp.id;
+            return (
+              <button
+                key={sp.id}
+                onClick={() => playable && onPlaySuperpower(side, sp)}
+                disabled={!playable}
+                className={`h-14 w-11 shrink-0 rounded-md transition ${
+                  selected ? 'ring-2 ring-sky-300' : ''
+                } ${playable ? 'opacity-100' : 'opacity-45'}`}
+                title={castableIds.has(sp.id) ? undefined : 'Charged — playable in your trick window'}
+              >
+                <SuperpowerFace sp={sp} cost={cost} compact />
+              </button>
+            );
+          })()
+        ),
+      )}
     </div>
   );
 }

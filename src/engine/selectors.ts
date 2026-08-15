@@ -111,6 +111,13 @@ export function superpowerCost(state: GameState, side: Side): number {
   return state.config.superpowerHandCost ?? 1;
 }
 
+// 单张超能力的花费:中断窗口内只有“本回合刚授予”那张免费,其余(旧超能力)仍是 1 费。
+// SP 作为手牌逐张显示时用此(每张 cost 角标可不同)。
+export function superpowerCostFor(state: GameState, side: Side, spId: string): number {
+  if (interruptSuperpowerId(state, side) === spId) return 0;
+  return state.config.superpowerHandCost ?? 1;
+}
+
 export function offeredSuperpowers(state: GameState, side: Side): Superpower[] {
   return (state[side].hero.superpowerOfferedIds ?? []).map(getSuperpower);
 }
