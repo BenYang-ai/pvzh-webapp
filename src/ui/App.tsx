@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Side } from '../engine/types.ts';
 import { isNetworkEnabled } from '../net/supabase.ts';
+import { hasAccess } from '../net/access.ts';
+import { Gate } from './Gate.tsx';
 import { LocalGame } from './LocalGame.tsx';
 import { NetworkGame } from './NetworkGame.tsx';
 import { Lobby } from './Lobby.tsx';
@@ -13,8 +15,18 @@ type Screen =
 
 export function App() {
   const net = isNetworkEnabled();
+  // 访问门:公开链接需先输口令。已通过(localStorage)则跳过。
+  const [unlocked, setUnlocked] = useState(hasAccess());
   // 无 Supabase env → 直接进本地 god-view(联网不可用)。
   const [screen, setScreen] = useState<Screen>(net ? { kind: 'menu' } : { kind: 'local' });
+
+  if (!unlocked) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-[#0f1a12] p-2">
+        <Gate onUnlock={() => setUnlocked(true)} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full items-center justify-center bg-[#0f1a12] p-2">
