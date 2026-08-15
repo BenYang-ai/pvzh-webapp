@@ -34,6 +34,14 @@ Invoke the **`pvzh-debug`** project skill (`.claude/skills/pvzh-debug/SKILL.md`)
 - **zombie superpower phase gating FIXED (2026-08-14, PR pending).** Zombie SP was playable in `ZOMBIE_PLAY`; now `ZOMBIE_TRICKS`-only (+ fight interrupt), mirroring the PR#7 zombie-tricks divergence. Plants unchanged (`PLANT_PLAY`, no separate trick phase). Fixed both `reduce.playSuperpower` and `selectors.canPlaySuperpowerNow`.
 - **`bullseye` FIXED (Ben, 2026-08-13, PR pending).** Was hero-seeking (skipped lane fighter). Now attacks normally — hits the fighter in front if present, else the hero; its only special effect is bypassing the Super-Block Meter on **hero** hits (`isFighterHit:false` only when bullseye reaches a hero). Deleted the bullseye early-return in `performAttack`; normal hero-hit branch passes `isFighterHit: !bullseye`. Verified with the Cactus-vs-Smelly repro (Cactus deals 2 → Smelly 4→2, then dies to Smelly's deadly).
 
+## Combat animation + log panel (UX, 2026-08-15, PR #23 + #24, merged)
+- **Fight used to resolve in one atomic `reduce` → board snapped to outcome, felt instant.** Now the local god-view replays combat lane-by-lane.
+- **Engine emits a structured event stream** `state.combatEvents: CombatEvent[]` (types.ts) beside the human `state.log`, appended at the same points in `combat.ts`: `reveal` / `laneStart` / `hit` (carries `hpAfter` + `amount` after armor) / `blocked` / `destroy` / `frenzy`. **Reset per `reduce` call** (`reduce.ts` top). Engine logic never reads it — additive, deterministic; `combat_animation.test.ts` locks the stream.
+- **`src/ui/useCombatAnimation.ts`** wraps `useGame`: holds the pre-fight board, steps events at **~450ms/lane** (`LANE_MS`), reveals the real final state at the end. **Tap anywhere = skip** (full-screen overlay in `LocalGame`). Interrupts are free — the engine already splits a fight across `reduce` calls at each Super-Block, so each chunk animates then naturally pauses on `SUPERPOWER_INTERRUPT` for the SP play/skip, then the resume chunk animates. `useGame.apply` now **returns the next state** so the animation layer can read `combatEvents`.
+- **Board effects** (`Board.tsx`, via optional `fx?: CombatFx` prop): lane flash on 结算, floating `-N` + HP tick on hit (HP number comes free from the intermediate frame's fighter/hero hp), death fade, hero-bar flash on face damage / Super-Block. `.dmg-float` keyframe in `index.css`.
+- **Log panel** (`LocalGame.LogPanel`): scrollable feed of raw `state.log` lines (plays/tricks/fights), fed by the **real** state (not the animation frame) so combat lines land as they resolve; autoscrolls; `lg+` screens only. Board itself untouched.
+- **Scope = local god-view only.** Networking path (`NetworkGame`/`useNetworkGame`) still instant — remote state is adopted directly, bypassing local `apply`, so it never hits the animation layer. Extending to net = hook that path too (deferred).
+
 ## Architecture (files)
 - `src/config.ts` — GameConfig constants (HP20, meter 8, charge 1–3, deck 40, superblock.mode='faithful', etc.)
 - `src/data/cardpool.json` — ALL card data + decklists. Add card = edit JSON, no engine change.
@@ -46,7 +54,8 @@ Invoke the **`pvzh-debug`** project skill (`.claude/skills/pvzh-debug/SKILL.md`)
 - `src/engine/reduce.ts` — `createInitialState` + `reduce` (phase machine, play gating, resources, draw). `IllegalActionError` on bad moves.
 - `src/engine/selectors.ts` — UI legal-move queries (`activeSide`, `emptyLanes`, `trickTargets`, `canAfford`).
 - `src/ui/useGame.ts` — hook running reduce locally, surfaces errors. (M5 reuses; adds transport.)
-- `src/ui/Board.tsx` — god-view board (both hands, lanes, hero bars, phase bar, selection+targeting).
+- `src/ui/Board.tsx` — god-view board (both hands, lanes, hero bars, phase bar, selection+targeting) + optional `fx` combat-animation overlay.
+- `src/ui/useCombatAnimation.ts` — combat replay layer (event stream → lane-by-lane frames + `CombatFx`); local god-view only. See "Combat animation" above.
 - `src/ui/CardFace.tsx` — card render (emoji placeholder OR `art.image` scan) + keyword/status icons.
 
 ## Rule decisions (BEYOND spec, or CORRECTING it)
