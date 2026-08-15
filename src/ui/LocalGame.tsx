@@ -26,6 +26,7 @@ export function LocalGame({ onExit }: { onExit?: () => void }) {
         getLog={exportLog}
         onImportLog={importLog}
         fx={fx}
+        lastLog={state.log[state.log.length - 1]}
       />
       {/* 事件日志面板(state.log 原文)。用真实 state → 战斗行落地即显。宽屏才显示。 */}
       <LogPanel log={state.log} />

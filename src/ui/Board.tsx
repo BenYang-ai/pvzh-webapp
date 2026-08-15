@@ -35,6 +35,7 @@ export interface BoardProps {
   getLog?: () => string; // 提供 → 显示 "Copy log" 按钮(可重放日志)
   onImportLog?: (json: string) => string | null; // 提供 → 显示 "Load log";返回错误字符串或 null
   fx?: CombatFx; // 战斗动画叠加特效(见 useCombatAnimation);缺省 = 无
+  lastLog?: string; // 最新一条日志 → 显示在 zombie/plant lane 之间的分隔条(用真实 state,非动画帧)
 }
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -63,7 +64,7 @@ function advanceLabel(phase: Phase): string {
   }
 }
 
-export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog, onImportLog, fx = NO_FX }: BoardProps) {
+export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog, onImportLog, fx = NO_FX, lastLog }: BoardProps) {
   const [sel, setSel] = useState<Selection>(null);
   const [spSel, setSpSel] = useState<SPSelection>(null);
 
@@ -186,6 +187,7 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
 
       <div className="flex flex-1 flex-col justify-center gap-1.5">
         <LaneRow state={state} side="zombie" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} fx={fx} />
+        <LaneDivider lastLog={lastLog} />
         <LaneRow state={state} side="plant" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} fx={fx} />
       </div>
 
@@ -552,6 +554,19 @@ function HandRow({
           })()
         ),
       )}
+    </div>
+  );
+}
+
+// zombie / plant lane 之间的分隔条,兼作「最新一条日志」的展示位。
+function LaneDivider({ lastLog }: { lastLog?: string }) {
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <div className="h-px flex-1 bg-[#2c4432]" />
+      <span className="max-w-[70%] truncate rounded-full bg-[#0f1a12] px-3 py-0.5 text-center font-mono text-[11px] text-[#9fc4a6]">
+        {lastLog && !lastLog.startsWith('—') ? lastLog : '⚔️'}
+      </span>
+      <div className="h-px flex-1 bg-[#2c4432]" />
     </div>
   );
 }

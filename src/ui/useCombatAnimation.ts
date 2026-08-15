@@ -6,8 +6,8 @@ import type { CombatEvent, Fighter, GameAction, GameState, Side } from '../engin
 // 这里拦截 apply:若产出 combatEvents,则先按 lane 逐拍回放(闪 lane / 飘 -N / 掉血 / 淡出),
 // 再落到真实终局 state。中断会把整场切成多段 reduce → 每段各自回放,天然“打到中断处暂停”。
 
-const LANE_MS = 450; // 每条 lane 结算耗时(Ben 定)
-const REVEAL_MS = 350; // gravestone 翻面预演
+const LANE_MS = 750; // 每条 lane 结算耗时(Ben 调慢,原 450 太快)
+const REVEAL_MS = 500; // gravestone 翻面预演
 
 // 当前拍要展示的叠加特效(Board/HeroBar/LaneRow 消费)。
 export interface CombatFx {
