@@ -199,6 +199,7 @@ function playFighter(state: GameState, action: Extract<GameAction, { type: 'PLAY
   p.resource -= card.cost;
   const fighter = makeFighter(ref, side);
   state.lanes[lane][side] = fighter;
+  state.log.push(`${side} played ${card.name} at L${lane + 1}`);
 
   // 非 gravestone 立即触发 onPlay;gravestone 面朝下,onReveal 留到翻面(M2)
   if (!fighter.gravestone && card.onPlay) {
@@ -222,6 +223,7 @@ function playTrick(state: GameState, action: Extract<GameAction, { type: 'PLAY_T
 
   takeFromHand(p, instanceId);
   p.resource -= card.cost;
+  state.log.push(`${side} played ${card.name}${target ? ` at L${target.lane + 1}` : ''}`);
   if (card.onPlay) applyEffects(state, card.onPlay, { caster: side, chosen: target });
 }
 

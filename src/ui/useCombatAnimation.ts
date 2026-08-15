@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CombatEvent, Fighter, GameAction, GameState, Side } from '../engine/types.ts';
+import { getCard } from '../engine/cardpool.ts';
 
 // 战斗动画层(本地 god-view 专用,§UX)。
 // 引擎一次 apply 原子结算整场战斗,UI 会瞬间跳到终局 → 无“打”的感觉。
@@ -57,6 +58,34 @@ function findFighter(s: GameState, instanceId: string): Fighter | null {
     if (lane.zombie?.instanceId === instanceId) return lane.zombie;
   }
   return null;
+}
+
+const cardName = (f: Fighter | null | undefined) => (f ? getCard(f.cardId).name : null);
+
+// 为当前拍合成一条中间区显示的说明(跟着 lane 逐拍走)。frame = 已应用本拍命中的中间帧,
+// 死者本拍仅标记未移除 → 名字仍可查。
+function captionFor(frame: GameState, step: Step | undefined): string {
+  if (!step) return '';
+  if (step.kind === 'reveal') return 'Revealing gravestones…';
+  const L = step.lane != null ? `L${step.lane + 1}` : '';
+  const parts: string[] = [];
+  for (const e of step.events) {
+    if (e.kind === 'hit') {
+      const atk = cardName(frame.lanes[e.lane]?.[e.attacker]) ?? e.attacker;
+      const tgt =
+        e.target === 'hero'
+          ? `${e.heroSide} hero`
+          : (cardName(e.instanceId ? findFighter(frame, e.instanceId) : null) ?? 'fighter');
+      parts.push(`${atk} → ${tgt} -${e.amount}`);
+    } else if (e.kind === 'blocked') {
+      parts.push(`${e.heroSide} Super-Block!`);
+    } else if (e.kind === 'destroy') {
+      parts.push(`${cardName(findFighter(frame, e.instanceId)) ?? 'fighter'} destroyed`);
+    } else if (e.kind === 'frenzy') {
+      parts.push(`${cardName(findFighter(frame, e.instanceId)) ?? 'zombie'} frenzy`);
+    }
+  }
+  return parts.length ? `${L}: ${parts.join(' · ')}` : L;
 }
 
 // 累积回放到第 idx 拍:此前拍全落实(掉血 + 移除死者 + 翻面),本拍死者只标 dying(下拍才移除)。
@@ -153,11 +182,13 @@ export function useCombatAnimation(realState: GameState, rawApply: (a: GameActio
   const animating = pending != null;
   let displayState = realState;
   let fx = EMPTY_FX;
+  let caption = ''; // 回放中:当前拍说明;非回放留空(UI 回落到真实日志末行)
   if (pending) {
     const frame = frameAt(pending.pre, pending.steps, stepIdx);
     displayState = frame.state;
     fx = fxAt(pending.steps, stepIdx, frame.dying);
+    caption = captionFor(frame.state, pending.steps[stepIdx]);
   }
 
-  return { displayState, fx, animating, apply, skip };
+  return { displayState, fx, animating, caption, apply, skip };
 }
