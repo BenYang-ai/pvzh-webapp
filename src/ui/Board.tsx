@@ -8,6 +8,7 @@ import {
   canPlayFighterNow,
   canPlaySuperpowerNow,
   canPlayTrickNow,
+  castableSuperpowers,
   emptyLanes,
   offeredSuperpowers,
   readySuperpowers,
@@ -158,7 +159,7 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
   // 谁点“推进/跳过”:INTERRUPT 时是中断队首一方,PLANT_PLAY 时植物,否则僵尸。
   const advanceOwner: Side =
     state.phase === 'SUPERPOWER_INTERRUPT'
-      ? (state.interrupts?.[0] ?? 'zombie')
+      ? (state.interrupts?.[0]?.side ?? 'zombie')
       : state.phase === 'PLANT_PLAY'
         ? 'plant'
         : 'zombie';
@@ -254,14 +255,17 @@ function SuperpowerControls({
     .filter((o) => o.list.length > 0);
 
   const canCast = active && (viewSide == null || active === viewSide) && canPlaySuperpowerNow(state, active);
-  // 当前可施放的一方持有的 SP(可叠多张)→ 每张一个按钮;买不起(资源不足)则置灰。
+  // 当前可施放的 SP:中断窗口只含“本回合刚授予”那张(免费),trick 窗口=全部持有(1 费)。买不起则置灰。
   const castCost = active ? superpowerCost(state, active) : 0;
-  const castable = canCast ? readySuperpowers(state, active!) : [];
+  const castable = canCast ? castableSuperpowers(state, active!) : [];
+  const castableIds = new Set(castable.map((sp) => sp.id));
 
-  // 持有但当前不可施放的 SP(非本方 trick 窗口)→ 显示只读“charged”提示。
-  const charged = visibleSides
-    .filter((side) => !(canCast && active === side))
-    .flatMap((side) => readySuperpowers(state, side).map((sp) => ({ side, sp })));
+  // 持有但当前不可即时施放的 SP(旧超能力 / 非本方窗口)→ 显示只读“charged”提示。
+  const charged = visibleSides.flatMap((side) =>
+    readySuperpowers(state, side)
+      .filter((sp) => !(active === side && castableIds.has(sp.id)))
+      .map((sp) => ({ side, sp })),
+  );
 
   if (!spSel && castable.length === 0 && offers.length === 0 && charged.length === 0) return null;
 

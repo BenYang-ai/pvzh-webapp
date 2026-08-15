@@ -145,7 +145,9 @@ export interface GameState {
   config: import('../config.ts').GameConfig; // 规则开关(Super-Block 模式等),随 state 走,联网两端一致
   // —— FIGHT 中断续算(SUPERPOWER_INTERRUPT 期间有值)——
   fightResume?: { nextLane: number } | null; // resolveFight 从哪条 lane 续算
-  interrupts?: Side[]; // 本次 fight 中因 Super-Block 获得超能力、待处理的一方(队列,队首优先)
+  // 本次 fight 中因 Super-Block 获得超能力、待处理的一方(队列,队首优先)。
+  // spId=本次中断“刚授予”的那张超能力 id:仅它可在中断窗口免费即时打出(pick 模式选定前为 undefined)。
+  interrupts?: { side: Side; spId?: string }[];
   combatEvents?: CombatEvent[]; // 本次 resolveFight 片段产出的动画事件(见 CombatEvent);每次调用清空重填
 }
 
