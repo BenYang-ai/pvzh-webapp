@@ -155,8 +155,9 @@ function consumeFrozen(f: Fighter | null): boolean {
   return true;
 }
 
-// §5:FIGHT 开始翻开所有 gravestone,触发 onReveal。
-function revealGravestones(state: GameState): void {
+// §5:翻开所有 gravestone,触发 onReveal。时机 = 植物出牌阶段结束(PLANT_PLAY→ZOMBIE_TRICKS),
+// 而非战斗开始(Ben 2026-08-15:僵尸须在植物阶段结束时出土;将来僵尸可能在某条件下缩回墓地)。
+export function revealGravestones(state: GameState): void {
   state.lanes.forEach((lane, i) => {
     const z = lane.zombie;
     if (z && z.gravestone) {
@@ -225,8 +226,8 @@ export function resolveFight(state: GameState, config: GameConfig): void {
   if (resume) {
     start = resume.nextLane;
   } else {
+    // gravestone 已在植物阶段结束时翻开(reduce.advancePhase),这里不再翻。
     state.log.push(`— fight (turn ${state.turn}) —`);
-    revealGravestones(state);
   }
   for (let l = start; l < state.lanes.length; l++) {
     if (resolveLane(state, l, config)) {

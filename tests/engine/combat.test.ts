@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveFight } from '../../src/engine/combat.ts';
+import { reduce } from '../../src/engine/reduce.ts';
 import { DEFAULT_CONFIG } from '../../src/config.ts';
 import { baseState, placeFighter } from './helpers.ts';
 
@@ -115,13 +116,18 @@ describe('FIGHT — frenzy (§6 STEP4, zombie only)', () => {
 });
 
 describe('FIGHT — gravestone reveal (§5/§7)', () => {
-  it('flips at FIGHT start then fights normally', () => {
-    const s = baseState({ phase: 'FIGHT' });
+  it('flips at end of plant phase (not fight start), then fights normally', () => {
+    const s = baseState({ phase: 'PLANT_PLAY' });
     const z = placeFighter(s, 3, 'zombie', 'z_smelly'); // 2/4 gravestone
     expect(z.gravestone).toBe(true);
-    resolveFight(s, cfg);
-    expect(s.lanes[3].zombie?.gravestone).toBe(false);
-    expect(s.plant.hero.hp).toBe(18); // revealed, hits hero for 2
+    // 植物出牌结束 → 出土(翻面),此时尚未战斗。
+    const s2 = reduce(s, { type: 'ADVANCE_PHASE', side: 'plant' });
+    expect(s2.phase).toBe('ZOMBIE_TRICKS');
+    expect(s2.lanes[3].zombie?.gravestone).toBe(false);
+    expect(s2.plant.hero.hp).toBe(20); // 还没打
+    // 结束僵尸 trick → 战斗:2 点打脸。
+    const s3 = reduce(s2, { type: 'ADVANCE_PHASE', side: 'zombie' });
+    expect(s3.plant.hero.hp).toBe(18);
   });
 });
 
