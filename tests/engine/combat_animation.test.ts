@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveFight } from '../../src/engine/combat.ts';
+import { reduce } from '../../src/engine/reduce.ts';
 import { DEFAULT_CONFIG } from '../../src/config.ts';
 import type { CombatEvent } from '../../src/engine/types.ts';
 import { baseState, placeFighter } from './helpers.ts';
@@ -35,13 +36,14 @@ describe('resolveFight emits structured combat events', () => {
     expect(hit).toMatchObject({ kind: 'hit', target: 'hero', heroSide: 'plant', amount: 1, hpAfter: 19 });
   });
 
-  it('gravestone reveal emits a reveal event before combat', () => {
-    const s = baseState({ phase: 'ZOMBIE_TRICKS' });
+  it('gravestone reveal emits a reveal event at end of plant phase (not at fight)', () => {
+    // 出土时机改为植物出牌结束(PLANT_PLAY→ZOMBIE_TRICKS),不再在战斗开始翻面。
+    const s = baseState({ phase: 'PLANT_PLAY' });
     const z = placeFighter(s, 0, 'zombie', 'z_smelly'); // gravestone
     z.gravestone = true;
-    resolveFight(s, DEFAULT_CONFIG);
-    const evs = s.combatEvents!;
-    expect(evs[0]).toMatchObject({ kind: 'reveal', lane: 0, instanceId: z.instanceId });
-    expect(evs.findIndex((e) => e.kind === 'reveal')).toBeLessThan(evs.findIndex((e) => e.kind === 'laneStart'));
+    const s2 = reduce(s, { type: 'ADVANCE_PHASE', side: 'plant' });
+    expect(s2.phase).toBe('ZOMBIE_TRICKS');
+    expect(s2.combatEvents![0]).toMatchObject({ kind: 'reveal', lane: 0, instanceId: z.instanceId });
+    expect(s2.lanes[0].zombie?.gravestone).toBe(false);
   });
 });

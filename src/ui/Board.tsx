@@ -17,6 +17,7 @@ import {
 } from '../engine/selectors.ts';
 import { CardFace, SuperpowerFace } from './CardFace.tsx';
 import type { CombatFx } from './useCombatAnimation.ts';
+import type { PlayerNames } from '../net/room.ts';
 
 const NO_FX: CombatFx = { flashLane: null, dying: new Set(), blockedHeroes: new Set(), floats: [] };
 
@@ -34,6 +35,8 @@ export interface BoardProps {
   banner?: string | null; // 联网状态提示(连接中/对手回合)
   getLog?: () => string; // 提供 → 显示 "Copy log" 按钮(可重放日志)
   onImportLog?: (json: string) => string | null; // 提供 → 显示 "Load log";返回错误字符串或 null
+  copyState?: () => string; // 提供 → 显示 "Copy state" 按钮(联网 debug:导出当前权威 state JSON)
+  names?: PlayerNames; // 联网:双方玩家名,显示在 hero bar(本地 god-view 不传)
   fx?: CombatFx; // 战斗动画叠加特效(见 useCombatAnimation);缺省 = 无
   lastLog?: string; // 最新一条日志 → 显示在 zombie/plant lane 之间的分隔条(用真实 state,非动画帧)
 }
@@ -64,7 +67,7 @@ function advanceLabel(phase: Phase): string {
   }
 }
 
-export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog, onImportLog, fx = NO_FX, lastLog }: BoardProps) {
+export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog, onImportLog, copyState, names, fx = NO_FX, lastLog }: BoardProps) {
   const [sel, setSel] = useState<Selection>(null);
   const [spSel, setSpSel] = useState<SPSelection>(null);
 
@@ -174,7 +177,7 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
 
   return (
     <div className="flex aspect-[4/3] max-h-full w-full max-w-[1100px] flex-col gap-1.5 rounded-xl bg-[#16241a] p-3 text-[#e8f0e8] shadow-lg">
-      <HeroBar state={state} side="zombie" active={active === 'zombie'} youAre={viewSide} fx={fx} />
+      <HeroBar state={state} side="zombie" active={active === 'zombie'} youAre={viewSide} name={names?.zombie} fx={fx} />
       <HandRow
         state={state}
         side="zombie"
@@ -200,7 +203,7 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
         onSelect={selectHandCard}
         onPlaySuperpower={startSuperpower}
       />
-      <HeroBar state={state} side="plant" active={active === 'plant'} youAre={viewSide} fx={fx} />
+      <HeroBar state={state} side="plant" active={active === 'plant'} youAre={viewSide} name={names?.plant} fx={fx} />
 
       <SuperpowerControls
         state={state}
@@ -232,7 +235,8 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
               Leave
             </button>
           )}
-          {getLog && <CopyLogButton getLog={getLog} />}
+          {getLog && <CopyTextButton getText={getLog} idleLabel="🐞 Copy log" className="bg-[#3a2a4a] hover:bg-[#4a3a5a]" />}
+          {copyState && <CopyTextButton getText={copyState} idleLabel="📋 Copy state" className="bg-[#2a3a4a] hover:bg-[#3a4a5a]" />}
           {onImportLog && <LoadLogButton onImportLog={onImportLog} />}
         </span>
       </div>
@@ -306,14 +310,14 @@ function SuperpowerControls({
   );
 }
 
-// 复制可重放日志。clipboard API 需安全上下文(https/localhost);
+// 复制文本到剪贴板。clipboard API 需安全上下文(https/localhost);
 // iPad 走 LAN http 时不可用 → 回退到只读 textarea 弹层供手动全选复制。
-function CopyLogButton({ getLog }: { getLog: () => string }) {
+function CopyTextButton({ getText, idleLabel, className }: { getText: () => string; idleLabel: string; className: string }) {
   const [copied, setCopied] = useState(false);
   const [manual, setManual] = useState<string | null>(null);
 
   async function copy() {
-    const text = getLog();
+    const text = getText();
     try {
       if (!navigator.clipboard) throw new Error('no clipboard');
       await navigator.clipboard.writeText(text);
@@ -326,8 +330,8 @@ function CopyLogButton({ getLog }: { getLog: () => string }) {
 
   return (
     <>
-      <button onClick={copy} className="rounded-md bg-[#3a2a4a] px-3 py-1 hover:bg-[#4a3a5a]">
-        {copied ? 'Copied ✓' : '🐞 Copy log'}
+      <button onClick={copy} className={`rounded-md px-3 py-1 ${className}`}>
+        {copied ? 'Copied ✓' : idleLabel}
       </button>
       {manual !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -414,16 +418,19 @@ function HeroBar({
   side,
   active,
   youAre,
+  name,
   fx = NO_FX,
 }: {
   state: GameState;
   side: Side;
   active: boolean;
   youAre?: Side;
+  name?: string;
   fx?: CombatFx;
 }) {
   const p = state[side];
-  const label = side === 'zombie' ? 'Zombies' : 'Plants';
+  const faction = side === 'zombie' ? 'Zombies' : 'Plants';
+  const label = name ?? faction; // 有玩家名(联网)→ 显示名字,否则显示阵营
   const resIcon = side === 'zombie' ? '🧠' : '☀';
   const hurt = fx.floats.find((f) => f.heroSide === side); // 本拍脸伤
   const blocked = fx.blockedHeroes.has(side); // 本拍 Super-Block 格挡

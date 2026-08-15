@@ -56,9 +56,11 @@ export function NetworkGame({ code, seat, onLeave }: { code: string; seat: Side;
         apply={apply}
         error={error}
         viewSide={seat}
+        names={names}
         onNewGame={onNewGame}
         onLeave={onLeave}
         banner={banner}
+        copyState={() => JSON.stringify(state, null, 2)} // 权威 state(非动画帧)→ net debug
         fx={fx}
         lastLog={midMessage}
       />

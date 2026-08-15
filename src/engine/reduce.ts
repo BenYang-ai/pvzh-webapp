@@ -12,7 +12,7 @@ import { getCard, getSuperpower } from './cardpool.ts';
 import { buildDeck, makeFighter, hasKeyword } from './deck.ts';
 import { seedFromString, shuffle } from './rng.ts';
 import { applyEffects, drawCards, otherSide, player } from './effects.ts';
-import { resolveFight } from './combat.ts';
+import { resolveFight, revealGravestones } from './combat.ts';
 import { applySuperpower, grantSuperpower } from './superpowers.ts';
 import type { Fighter, Superpower } from './types.ts';
 
@@ -359,6 +359,9 @@ function advancePhase(
       state.phase = 'PLANT_PLAY';
       return;
     case 'PLANT_PLAY':
+      // 植物出牌结束 → 僵尸出土(翻开 gravestone + onReveal),再进僵尸 trick 阶段。
+      // 此后 gravestone 已面朝上,僵尸 trick 可指向、战斗直接结算(不再在战斗开始翻面)。
+      revealGravestones(state);
       state.phase = 'ZOMBIE_TRICKS';
       return;
     case 'ZOMBIE_TRICKS':
