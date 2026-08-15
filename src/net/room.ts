@@ -1,6 +1,6 @@
 // 房间传输层(§M5)。同步策略:整局 GameState 作权威单行 jsonb,回合制 → 只有行动方推送。
 // rev 单调递增,客户端忽略 rev ≤ 本地 已应用 的更新(去回声)。引擎确定性,无需重放。
-import type { GameState } from '../engine/types.ts';
+import type { GameState, Side } from '../engine/types.ts';
 import { getClient } from './supabase.ts';
 
 const TABLE = 'games';
@@ -10,9 +10,18 @@ export interface RoomSnapshot {
   state: GameState;
 }
 
-// 建房:写入初始 state(rev 0)。code 已存在则覆盖(重开同码)。
-export async function createRoom(code: string, state: GameState): Promise<void> {
-  const { error } = await getClient().from(TABLE).upsert({ id: code, rev: 0, state });
+// 大厅用:房间是否已存在 + 建房方执方(供第二人自动分到另一方)。房间不存在 → exists:false。
+export async function fetchRoomMeta(code: string): Promise<{ exists: boolean; hostSide: Side | null }> {
+  const { data, error } = await getClient().from(TABLE).select('host_side').eq('id', code).maybeSingle();
+  if (error) throw new Error(`fetch room meta failed: ${error.message}`);
+  if (!data) return { exists: false, hostSide: null };
+  const h = (data as { host_side: string | null }).host_side;
+  return { exists: true, hostSide: h === 'plant' || h === 'zombie' ? h : null };
+}
+
+// 建房:写入初始 state(rev 0)+ 建房方执方。code 已存在则覆盖(重开同局,保留席位)。
+export async function createRoom(code: string, state: GameState, hostSide: Side): Promise<void> {
+  const { error } = await getClient().from(TABLE).upsert({ id: code, rev: 0, state, host_side: hostSide });
   if (error) throw new Error(`create room failed: ${error.message}`);
 }
 
