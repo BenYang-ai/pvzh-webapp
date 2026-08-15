@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Side } from '../engine/types.ts';
 import { activeSide } from '../engine/selectors.ts';
 import { Board } from './Board.tsx';
+import { savedName } from '../net/access.ts';
 import { useNetworkGame } from './useNetworkGame.ts';
 import { useNetCombatAnimation } from './useNetCombatAnimation.ts';
 
@@ -32,6 +33,7 @@ export function NetworkGame({ code, seat, onLeave }: { code: string; seat: Side;
 
   const myName = names[seat] ?? (seat === 'plant' ? 'Plants' : 'Zombies');
   const oppName = names[other(seat)] ?? 'Opponent';
+  const isBen = savedName(code) === 'Ben'; // debug 按钮仅 Ben 可见
 
   // 中间条说明用真实 state(不用回放中间帧),战斗行落地即显;回放中显示当前拍说明。
   const lastLine = state.log[state.log.length - 1] ?? '';
@@ -60,7 +62,7 @@ export function NetworkGame({ code, seat, onLeave }: { code: string; seat: Side;
         onNewGame={onNewGame}
         onLeave={onLeave}
         banner={banner}
-        copyState={() => JSON.stringify(state, null, 2)} // 权威 state(非动画帧)→ net debug
+        copyState={isBen ? () => JSON.stringify(state, null, 2) : undefined} // 权威 state → net debug,仅 Ben 可见
         fx={fx}
         lastLog={midMessage}
       />
