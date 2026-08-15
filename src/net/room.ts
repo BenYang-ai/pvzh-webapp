@@ -16,6 +16,14 @@ export async function createRoom(code: string, state: GameState): Promise<void> 
   if (error) throw new Error(`create room failed: ${error.message}`);
 }
 
+// 轻量:只取 rev(8 字节),用于 poll 对账——rev 没涨就不拉整局 state,近零流量。
+export async function fetchRev(code: string): Promise<number | null> {
+  const { data, error } = await getClient().from(TABLE).select('rev').eq('id', code).maybeSingle();
+  if (error) throw new Error(`fetch rev failed: ${error.message}`);
+  if (!data) return null;
+  return Number(data.rev);
+}
+
 // 拉取当前快照。房间不存在 → null。
 export async function fetchRoom(code: string): Promise<RoomSnapshot | null> {
   const { data, error } = await getClient().from(TABLE).select('rev, state').eq('id', code).maybeSingle();
@@ -34,8 +42,13 @@ export async function pushState(code: string, newRev: number, state: GameState):
   if (error) throw new Error(`push failed: ${error.message}`);
 }
 
-// 订阅房间行更新。返回退订函数。
-export function subscribeRoom(code: string, onChange: (snap: RoomSnapshot) => void): () => void {
+// 订阅房间行更新。onChange=收到实时 UPDATE;onSubscribed=(重)订阅成功时触发,
+// 供调用方在重连后主动对账(实时是尽力而为、无补发,断线期间漏掉的事件靠对账补回)。返回退订函数。
+export function subscribeRoom(
+  code: string,
+  onChange: (snap: RoomSnapshot) => void,
+  onSubscribed?: () => void,
+): () => void {
   const channel = getClient()
     .channel(`room:${code}`)
     .on(
@@ -46,7 +59,9 @@ export function subscribeRoom(code: string, onChange: (snap: RoomSnapshot) => vo
         onChange({ rev: Number(row.rev), state: row.state });
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') onSubscribed?.();
+    });
   return () => {
     getClient().removeChannel(channel);
   };
