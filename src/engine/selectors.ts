@@ -13,7 +13,7 @@ export function activeSide(state: GameState): Side | null {
     case 'PLANT_PLAY':
       return 'plant';
     case 'SUPERPOWER_INTERRUPT':
-      return state.interrupts?.[0] ?? null; // 中断窗口:队首一方行动
+      return state.interrupts?.[0]?.side ?? null; // 中断窗口:队首一方行动
     default:
       return null;
   }
@@ -78,11 +78,7 @@ export function cardOf(cardId: string): Card {
 // —— 超能力(§8)——
 // 持有超能力(≥1),且在可打出的窗口(中断队首 / 本方 trick 窗口)→ 可打出。
 export function canPlaySuperpowerNow(state: GameState, side: Side): boolean {
-  if (!state[side].hero.readySuperpowers.length) return false;
-  // 战斗中断窗口:仅队首一方可即时打出。
-  if (state.phase === 'SUPERPOWER_INTERRUPT') return state.interrupts?.[0] === side;
-  // 中断窗口外视同 trick:僵尸在 ZOMBIE_TRICKS 打(与 reduce.playSuperpower 一致);植物在 PLANT_PLAY 打。
-  return (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_TRICKS');
+  return castableSuperpowers(state, side).length > 0;
 }
 
 // 本方当前持有的所有待用超能力(可叠多张)。
@@ -90,9 +86,28 @@ export function readySuperpowers(state: GameState, side: Side): Superpower[] {
   return state[side].hero.readySuperpowers.map(getSuperpower);
 }
 
+// 中断窗口内“本回合刚授予、可免费即时打出”的那张 SP id(pick 未选定 → null);非中断窗口返回 null。
+export function interruptSuperpowerId(state: GameState, side: Side): string | null {
+  if (state.phase !== 'SUPERPOWER_INTERRUPT') return null;
+  const head = state.interrupts?.[0];
+  return head?.side === side ? head.spId ?? null : null;
+}
+
+// 此刻实际可即时打出的 SP:中断窗口仅限本回合刚授予那张(免费);trick 窗口=全部持有(1 费);其余=空。
+// 旧超能力在战斗中断中不可打(留到本方 trick 窗口)。与 reduce.playSuperpower 校验一致。
+export function castableSuperpowers(state: GameState, side: Side): Superpower[] {
+  if (state.phase === 'SUPERPOWER_INTERRUPT') {
+    const freeId = interruptSuperpowerId(state, side);
+    return freeId ? [getSuperpower(freeId)] : [];
+  }
+  const inTrickWindow =
+    (side === 'plant' && state.phase === 'PLANT_PLAY') || (side === 'zombie' && state.phase === 'ZOMBIE_TRICKS');
+  return inTrickWindow ? readySuperpowers(state, side) : [];
+}
+
 // 打出一张超能力的花费:中断窗口内免费,否则当作 trick 花 superpowerHandCost(默认 1)。
 export function superpowerCost(state: GameState, side: Side): number {
-  if (state.phase === 'SUPERPOWER_INTERRUPT' && state.interrupts?.[0] === side) return 0;
+  if (state.phase === 'SUPERPOWER_INTERRUPT' && state.interrupts?.[0]?.side === side) return 0;
   return state.config.superpowerHandCost ?? 1;
 }
 

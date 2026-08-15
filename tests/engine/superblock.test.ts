@@ -103,7 +103,7 @@ describe('Superpowers are unique cards (drawn once)', () => {
     const all = superpowersFor('plant').map((sp) => sp.id);
     s.plant.hero.usedSuperpowerIds = all.slice(0, 3); // 只剩最后一个
     const granted = grantSuperpower(s, 'plant');
-    expect(granted).toBe(true);
+    expect(granted).toEqual({ interrupt: true, spId: all[3] });
     expect(s.plant.hero.readySuperpowers).toEqual([all[3]]);
     expect(s.plant.hero.usedSuperpowerIds).toContain(all[3]);
   });
@@ -119,11 +119,11 @@ describe('Superpowers are unique cards (drawn once)', () => {
     expect(new Set(ready).size).toBe(2); // 无重复
   });
 
-  it('grantSuperpower returns false once all superpowers are drawn', () => {
+  it('grantSuperpower reports no interrupt once all superpowers are drawn', () => {
     const s = stateWithMode('faithful');
     s.zombie.hero.usedSuperpowerIds = superpowersFor('zombie').map((sp) => sp.id);
     const granted = grantSuperpower(s, 'zombie');
-    expect(granted).toBe(false);
+    expect(granted.interrupt).toBe(false);
     expect(s.zombie.hero.readySuperpowers).toHaveLength(0);
   });
 

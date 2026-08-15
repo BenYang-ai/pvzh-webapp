@@ -31,10 +31,11 @@ export function applyHeroDamage(
       hero.blockMeter = 0;
       hero.blockTriggers += 1; // 记一次充满(计入 3 次上限)
       const granted = grantSuperpower(state, heroSide);
-      state.log.push(`${heroSide} Super-Block! attack fully blocked${granted ? ', superpower charged' : ''}`);
+      state.log.push(`${heroSide} Super-Block! attack fully blocked${granted.interrupt ? ', superpower charged' : ''}`);
       if (emit) (state.combatEvents ??= []).push({ kind: 'blocked', lane: opts.lane!, heroSide });
       // 战斗中获得 → 入队,由 resolveFight 在本 lane 结算完后暂停,给该方即时打出的机会。
-      if (granted) (state.interrupts ??= []).push(heroSide);
+      // spId=本次刚授予那张:仅它可在中断窗口免费打出(旧超能力不可在战斗中打)。
+      if (granted.interrupt) (state.interrupts ??= []).push({ side: heroSide, spId: granted.spId });
       return; // 完全格挡:不扣血
     }
   }

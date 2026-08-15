@@ -251,8 +251,9 @@ function playSuperpower(
   config: GameConfig,
 ): void {
   const { side } = action;
-  // 超能力当作 trick 卡。SUPERPOWER_INTERRUPT:仅队首一方可即时打出(战斗中断窗口,免费)。
-  const inInterrupt = state.phase === 'SUPERPOWER_INTERRUPT' && state.interrupts?.[0] === side;
+  // 超能力当作 trick 卡。SUPERPOWER_INTERRUPT:仅队首一方可即时打出(战斗中断窗口)。
+  const head = state.phase === 'SUPERPOWER_INTERRUPT' ? state.interrupts?.[0] : undefined;
+  const inInterrupt = head?.side === side;
   // 中断窗口外则视同 trick:僵尸只能在 ZOMBIE_TRICKS 打(与 PR#7 分歧一致),植物在 PLANT_PLAY 打。
   const okPhase = inInterrupt || canPlayTrick(side, state.phase);
   if (!okPhase) throw new IllegalActionError(`cannot play superpower in ${state.phase}`);
@@ -260,8 +261,13 @@ function playSuperpower(
   const p = player(state, side);
   const hero = p.hero;
   if (!hero.readySuperpowers.length) throw new IllegalActionError('no superpower ready');
-  // 未指定则默认打出最近授予的(队尾),否则按 id 从列表取。
-  const spId = action.superpowerId ?? hero.readySuperpowers[hero.readySuperpowers.length - 1];
+  // 中断窗口:只有“本回合刚授予”的那张(head.spId)可即时免费打出;旧超能力不可在战斗中打(留到本方 trick 窗口 1 费打)。
+  // 窗口外(trick):未指定则默认打出最近授予的(队尾),否则按 id 从列表取。
+  const spId = inInterrupt
+    ? head!.spId ?? action.superpowerId ?? hero.readySuperpowers[hero.readySuperpowers.length - 1]
+    : action.superpowerId ?? hero.readySuperpowers[hero.readySuperpowers.length - 1];
+  if (inInterrupt && head!.spId !== undefined && spId !== head!.spId)
+    throw new IllegalActionError('only the just-charged superpower is free this fight; play others in your trick phase');
   const idx = hero.readySuperpowers.lastIndexOf(spId);
   if (idx === -1) throw new IllegalActionError(`superpower not ready: ${spId}`);
   const sp = getSuperpower(spId);
@@ -332,6 +338,10 @@ function pickSuperpower(state: GameState, action: Extract<GameAction, { type: 'P
   hero.readySuperpowers.push(action.superpowerId);
   hero.usedSuperpowerIds.push(action.superpowerId); // 唯一牌:抽到即消耗,不再被 offer/grant
   hero.superpowerOfferedIds = undefined;
+  // pick 模式在中断窗口选定 → 回填 spId,使这张成为本次中断可免费打出的那张。
+  const head = state.interrupts?.[0];
+  if (state.phase === 'SUPERPOWER_INTERRUPT' && head?.side === action.side && head.spId === undefined)
+    head.spId = action.superpowerId;
 }
 
 function advancePhase(
@@ -359,7 +369,7 @@ function advancePhase(
       return;
     case 'SUPERPOWER_INTERRUPT': {
       // 跳过:超能力留在 readySuperpower,可在本方 play phase 再打;续算战斗。
-      const side = state.interrupts?.[0];
+      const side = state.interrupts?.[0]?.side;
       if (!side) throw new IllegalActionError('no interrupt pending');
       if (action.side !== side) throw new IllegalActionError(`not your interrupt (${side})`);
       state.log.push(`${side} kept the Super-Block superpower for later`);
