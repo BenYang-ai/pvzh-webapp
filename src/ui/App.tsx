@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Side } from '../engine/types.ts';
 import { isNetworkEnabled } from '../net/supabase.ts';
-import { hasAccess } from '../net/access.ts';
+import { hasAccess, FAMILY_ROOM } from '../net/access.ts';
 import { Gate } from './Gate.tsx';
 import { LocalGame } from './LocalGame.tsx';
 import { NetworkGame } from './NetworkGame.tsx';
@@ -11,7 +11,7 @@ type Screen =
   | { kind: 'menu' }
   | { kind: 'lobby' }
   | { kind: 'local' }
-  | { kind: 'net'; code: string; seat: Side };
+  | { kind: 'net'; seat: Side };
 
 export function App() {
   const net = isNetworkEnabled();
@@ -33,13 +33,13 @@ export function App() {
       {screen.kind === 'menu' && <Menu onLocal={() => setScreen({ kind: 'local' })} onNet={() => setScreen({ kind: 'lobby' })} />}
       {screen.kind === 'lobby' && (
         <Lobby
-          onEnter={(code, seat) => setScreen({ kind: 'net', code, seat })}
+          onEnter={(seat) => setScreen({ kind: 'net', seat })}
           onCancel={() => setScreen({ kind: 'menu' })}
         />
       )}
       {screen.kind === 'local' && <LocalGame onExit={net ? () => setScreen({ kind: 'menu' }) : undefined} />}
       {screen.kind === 'net' && (
-        <NetworkGame code={screen.code} seat={screen.seat} onLeave={() => setScreen({ kind: 'menu' })} />
+        <NetworkGame code={FAMILY_ROOM} seat={screen.seat} onLeave={() => setScreen({ kind: 'menu' })} />
       )}
     </div>
   );

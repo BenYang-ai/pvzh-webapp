@@ -21,6 +21,31 @@ export function roomIdFromSecret(secret: string): string {
   return normalizeSecret(secret).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'room';
 }
 
+// 家庭房间 id:口令唯一 → 房间唯一,无需房号。
+export const FAMILY_ROOM = roomIdFromSecret(ROOM_SECRET);
+
+// —— 记住本设备在某房间选的执方(刷新后不被翻面:host 刷新仍是 host)——
+function seatKey(room: string): string {
+  return `pvzh.seat.${room}`;
+}
+
+export function savedSeat(room: string): Side | null {
+  try {
+    const v = localStorage.getItem(seatKey(room));
+    return v === 'plant' || v === 'zombie' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSeat(room: string, side: Side): void {
+  try {
+    localStorage.setItem(seatKey(room), side);
+  } catch {
+    /* ignore */
+  }
+}
+
 // —— 通过状态记住(localStorage),同一设备只需输入一次 ——
 const KEY = 'pvzh.access';
 
