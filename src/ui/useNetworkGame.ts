@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GameAction, GameState } from '../engine/types.ts';
-import { reduce } from '../engine/reduce.ts';
-import { fetchRev, fetchRoom, pushState, subscribeRoom } from '../net/room.ts';
+import { reduce, createInitialState } from '../engine/reduce.ts';
+import { fetchRev, fetchRoom, pushState, subscribeRoom, type PlayerNames } from '../net/room.ts';
 
 // 对账轮询间隔:实时事件尽力而为、可能丢包,漏掉的一步靠此在 1s 内补回(见 NETWORKING 时序修复)。
 const RECONCILE_MS = 1000;
@@ -9,6 +9,7 @@ const RECONCILE_MS = 1000;
 // 联网对局:权威 state 存 Supabase 单行。本地乐观 reduce + 推送;订阅远端更新(去回声靠 rev)。
 export function useNetworkGame(code: string) {
   const [state, setState] = useState<GameState | null>(null);
+  const [names, setNames] = useState<PlayerNames>({});
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const revRef = useRef(-1);
@@ -29,9 +30,12 @@ export function useNetworkGame(code: string) {
         const rev = await fetchRev(code);
         if (!alive || rev == null || rev <= revRef.current) return;
         const snap = await fetchRoom(code);
-        if (alive && snap && snap.rev > revRef.current) {
-          adopt(snap.state, snap.rev);
-          setError(null);
+        if (alive && snap) {
+          setNames(snap.names);
+          if (snap.rev > revRef.current) {
+            adopt(snap.state, snap.rev);
+            setError(null);
+          }
         }
       } catch {
         /* 轮询失败无害,下次再试 */
@@ -45,6 +49,7 @@ export function useNetworkGame(code: string) {
           setError(`room "${code}" not found — create it on the other device first`);
           return;
         }
+        setNames(snap.names);
         adopt(snap.state, snap.rev);
       })
       .catch((e) => alive && setError((e as Error).message));
@@ -52,7 +57,9 @@ export function useNetworkGame(code: string) {
     const unsub = subscribeRoom(
       code,
       (snap) => {
-        if (alive && snap.rev > revRef.current) {
+        if (!alive) return;
+        setNames(snap.names); // 名字变更不改 rev → 不受 rev 门控,总是更新
+        if (snap.rev > revRef.current) {
           adopt(snap.state, snap.rev);
           setError(null);
         }
@@ -96,5 +103,16 @@ export function useNetworkGame(code: string) {
     [code, adopt],
   );
 
-  return { state, apply, error, connected };
+  // 网络“New game”:任一方可开新局。推送全新 state 在 rev+1(不能重置为 0,否则对端 rev 门控会忽略)。
+  const newGame = useCallback(() => {
+    const cur = stateRef.current;
+    if (!cur) return;
+    const fresh = createInitialState({ seed: `${code}-${Date.now()}`, config: cur.config });
+    const newRev = revRef.current + 1;
+    setError(null);
+    adopt(fresh, newRev);
+    pushState(code, newRev, fresh).catch((e) => setError(`sync: ${(e as Error).message}`));
+  }, [code, adopt]);
+
+  return { state, names, apply, newGame, error, connected };
 }

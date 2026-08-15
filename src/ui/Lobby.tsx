@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react';
 import type { Side } from '../engine/types.ts';
 import { createInitialState } from '../engine/reduce.ts';
-import { createRoom, fetchRoomMeta } from '../net/room.ts';
-import { FAMILY_ROOM, savedSeat, saveSeat } from '../net/access.ts';
+import { createRoom, fetchRoomMeta, setPlayerName, type PlayerNames } from '../net/room.ts';
+import { FAMILY_ROOM, PLAYER_NAMES, savedName, saveName, savedSeat, saveSeat } from '../net/access.ts';
 
 const other = (s: Side): Side => (s === 'plant' ? 'zombie' : 'plant');
 const label = (s: Side) => (s === 'plant' ? '🌱 Plants' : '🧟 Zombies');
 
-// 大厅:无房号(口令即房间)。第一人选边建局;第二人自动分到另一方,只读确认后进入。
+// 大厅:无房号(口令即房间)。选名字 + 第一人选边建局;第二人自动分到另一方,只读确认后进入。
 export function Lobby({ onEnter, onCancel }: { onEnter: (seat: Side) => void; onCancel: () => void }) {
   const room = FAMILY_ROOM;
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // meta.exists=已有局;hostSide=建房方执方。saved=本设备上次选的边(刷新不翻面)。
   const [exists, setExists] = useState(false);
   const [hostSide, setHostSide] = useState<Side | null>(null);
+  const [names, setNames] = useState<PlayerNames>({});
   const saved = savedSeat(room);
-  // 第一人(无局、无记录)才主动选边;否则执方已定(记录 > 对手的另一边)。
   const [pick, setPick] = useState<Side>('plant');
+  const [name, setName] = useState<string>(savedName(room) ?? PLAYER_NAMES[0]);
 
   useEffect(() => {
     let alive = true;
@@ -27,6 +27,7 @@ export function Lobby({ onEnter, onCancel }: { onEnter: (seat: Side) => void; on
         if (!alive) return;
         setExists(m.exists);
         setHostSide(m.hostSide);
+        setNames(m.names);
         setLoading(false);
       })
       .catch((e) => alive && (setErr((e as Error).message), setLoading(false)));
@@ -37,13 +38,20 @@ export function Lobby({ onEnter, onCancel }: { onEnter: (seat: Side) => void; on
 
   const fresh = () => createInitialState({ seed: `${room}-${Date.now()}` });
 
-  // 建新局(第一人开局 / 任一方“New game”):写入 fresh state,保留 host 执方。
+  // 认领名字(需房间已存在)+ 记本地。
+  async function claimName(side: Side) {
+    saveName(room, name);
+    saveSeat(room, side);
+    await setPlayerName(room, side, name);
+  }
+
+  // 第一人开局 / 任一方“New game”:写入 fresh state,保留 host 执方。
   async function startFresh(side: Side, host: Side) {
     setBusy(true);
     setErr(null);
     try {
       await createRoom(room, fresh(), host);
-      saveSeat(room, side);
+      await claimName(side);
       onEnter(side);
     } catch (e) {
       setErr((e as Error).message);
@@ -57,7 +65,7 @@ export function Lobby({ onEnter, onCancel }: { onEnter: (seat: Side) => void; on
     setErr(null);
     try {
       if (!exists) await createRoom(room, fresh(), side);
-      saveSeat(room, side);
+      await claimName(side);
       onEnter(side);
     } catch (e) {
       setErr((e as Error).message);
@@ -72,6 +80,23 @@ export function Lobby({ onEnter, onCancel }: { onEnter: (seat: Side) => void; on
     </button>
   );
 
+  const namePicker = (
+    <>
+      <p className="text-sm text-[#8fae95]">Your name</p>
+      <div className="flex gap-2">
+        {PLAYER_NAMES.map((n) => (
+          <button
+            key={n}
+            onClick={() => setName(n)}
+            className={`flex-1 rounded-md px-3 py-2 ${name === n ? 'bg-[#2e5a38] ring-1 ring-[#4a8f5a]' : 'bg-[#1a2a1f]'}`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+
   if (loading) {
     return (
       <div className={box}>
@@ -80,10 +105,9 @@ export function Lobby({ onEnter, onCancel }: { onEnter: (seat: Side) => void; on
     );
   }
 
-  // 已定执方:本设备记录优先,否则第二人 = 对手(host)的另一边。
   const mySide: Side | null = saved ?? (exists ? other(hostSide ?? 'zombie') : null);
 
-  // —— 第一人:主动选边开局 ——
+  // —— 第一人:选名字 + 选边开局 ——
   if (mySide == null) {
     const seatBtn = (s: Side) => (
       <button
@@ -96,6 +120,7 @@ export function Lobby({ onEnter, onCancel }: { onEnter: (seat: Side) => void; on
     return (
       <div className={box}>
         <h2 className="text-lg font-bold">Play over WiFi</h2>
+        {namePicker}
         <p className="text-sm text-[#8fae95]">You're first — pick your side.</p>
         <div className="flex gap-2">
           {seatBtn('plant')}
@@ -116,11 +141,13 @@ export function Lobby({ onEnter, onCancel }: { onEnter: (seat: Side) => void; on
     );
   }
 
-  // —— 执方已定:只读确认(第二人自动分边 / 本方刷新回来)——
+  // —— 执方已定:选名字 + 只读确认执方(第二人自动分边 / 本方刷新回来)——
+  const oppName = names[other(mySide)];
   return (
     <div className={box}>
       <h2 className="text-lg font-bold">Play over WiFi</h2>
-      <p className="text-sm text-[#8fae95]">Your side</p>
+      {namePicker}
+      <p className="text-sm text-[#8fae95]">Your side{oppName ? ` · vs ${oppName}` : ''}</p>
       <div className="rounded-md bg-[#0f1a12] px-3 py-4 text-center text-2xl font-bold ring-1 ring-[#2a3d30]">
         {label(mySide)}
       </div>

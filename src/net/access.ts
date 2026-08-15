@@ -46,6 +46,29 @@ export function saveSeat(room: string, side: Side): void {
   }
 }
 
+// —— 玩家名字(显示用,引擎不认)——
+export const PLAYER_NAMES = ['Ben', 'Miles', 'Leo'] as const;
+
+function nameKey(room: string): string {
+  return `pvzh.name.${room}`;
+}
+
+export function savedName(room: string): string | null {
+  try {
+    return localStorage.getItem(nameKey(room));
+  } catch {
+    return null;
+  }
+}
+
+export function saveName(room: string, name: string): void {
+  try {
+    localStorage.setItem(nameKey(room), name);
+  } catch {
+    /* ignore */
+  }
+}
+
 // —— 通过状态记住(localStorage),同一设备只需输入一次 ——
 const KEY = 'pvzh.access';
 

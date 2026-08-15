@@ -7,8 +7,8 @@ import { getCard } from '../engine/cardpool.ts';
 // 这里拦截 apply:若产出 combatEvents,则先按 lane 逐拍回放(闪 lane / 飘 -N / 掉血 / 淡出),
 // 再落到真实终局 state。中断会把整场切成多段 reduce → 每段各自回放,天然“打到中断处暂停”。
 
-const LANE_MS = 750; // 每条 lane 结算耗时(Ben 调慢,原 450 太快)
-const REVEAL_MS = 500; // gravestone 翻面预演
+export const LANE_MS = 750; // 每条 lane 结算耗时(Ben 调慢,原 450 太快)
+export const REVEAL_MS = 500; // gravestone 翻面预演
 
 // 当前拍要展示的叠加特效(Board/HeroBar/LaneRow 消费)。
 export interface CombatFx {
@@ -23,12 +23,12 @@ export interface FloatFx {
   instanceId?: string; // 命中 fighter → 该 fighter 位置
   heroSide?: Side; // 命中 hero → 该 hero bar
 }
-const EMPTY_FX: CombatFx = { flashLane: null, dying: new Set(), blockedHeroes: new Set(), floats: [] };
+export const EMPTY_FX: CombatFx = { flashLane: null, dying: new Set(), blockedHeroes: new Set(), floats: [] };
 
-type Step = { kind: 'reveal' | 'combat'; lane: number | null; events: CombatEvent[] };
+export type Step = { kind: 'reveal' | 'combat'; lane: number | null; events: CombatEvent[] };
 
 // 把线性事件流按 lane 切成拍:连续 reveal 合成一拍;每个 laneStart 起一拍。
-function groupSteps(events: CombatEvent[]): Step[] {
+export function groupSteps(events: CombatEvent[]): Step[] {
   const steps: Step[] = [];
   let cur: Step | null = null;
   for (const e of events) {
@@ -64,7 +64,7 @@ const cardName = (f: Fighter | null | undefined) => (f ? getCard(f.cardId).name 
 
 // 为当前拍合成一条中间区显示的说明(跟着 lane 逐拍走)。frame = 已应用本拍命中的中间帧,
 // 死者本拍仅标记未移除 → 名字仍可查。
-function captionFor(frame: GameState, step: Step | undefined): string {
+export function captionFor(frame: GameState, step: Step | undefined): string {
   if (!step) return '';
   if (step.kind === 'reveal') return 'Revealing gravestones…';
   const L = step.lane != null ? `L${step.lane + 1}` : '';
@@ -89,7 +89,7 @@ function captionFor(frame: GameState, step: Step | undefined): string {
 }
 
 // 累积回放到第 idx 拍:此前拍全落实(掉血 + 移除死者 + 翻面),本拍死者只标 dying(下拍才移除)。
-function frameAt(pre: GameState, steps: Step[], idx: number): { state: GameState; dying: Set<string> } {
+export function frameAt(pre: GameState, steps: Step[], idx: number): { state: GameState; dying: Set<string> } {
   const s = structuredClone(pre);
   const dying = new Set<string>();
   for (let i = 0; i <= idx && i < steps.length; i++) {
@@ -113,7 +113,7 @@ function frameAt(pre: GameState, steps: Step[], idx: number): { state: GameState
   return { state: s, dying };
 }
 
-function fxAt(steps: Step[], idx: number, dying: Set<string>): CombatFx {
+export function fxAt(steps: Step[], idx: number, dying: Set<string>): CombatFx {
   const step = steps[idx];
   if (!step) return EMPTY_FX;
   const floats: FloatFx[] = [];
