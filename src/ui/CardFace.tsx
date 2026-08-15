@@ -1,4 +1,4 @@
-import type { Card, Fighter } from '../engine/types.ts';
+import type { Card, Fighter, Superpower } from '../engine/types.ts';
 import { parseKeyword } from '../engine/deck.ts';
 
 export const KEYWORD_ICON: Record<string, string> = {
@@ -86,6 +86,34 @@ export function CardFace({
         <KeywordIcons keywords={keywords} />
         <span className="rounded-sm bg-black/40 px-0.5 font-bold text-red-200">{hp ?? ''}</span>
       </div>
+    </div>
+  );
+}
+
+// 超能力手牌卡面:紫色底 + ⚡,cost 角标(免费时显示 0)。超能力无 attack/health/art。
+export function SuperpowerFace({
+  sp,
+  cost,
+  compact = false,
+}: {
+  sp: Superpower;
+  cost: number;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`relative flex h-full w-full flex-col justify-between rounded-md p-1 text-white shadow-sm ${
+        compact ? 'text-[10px]' : 'text-xs'
+      }`}
+      style={{ background: 'linear-gradient(160deg,#3b2a6b,#6d3aa8)' }}
+    >
+      <span className="absolute -left-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-[10px]">
+        {cost}
+      </span>
+      {sp.signature && <span className="absolute right-0.5 top-0.5 text-[10px]">⭐</span>}
+      <div className="flex items-center justify-center text-lg leading-none">⚡</div>
+      <div className="truncate text-center font-medium leading-tight">{sp.name}</div>
+      <div className="text-center text-[8px] uppercase tracking-wide text-sky-200">superpower</div>
     </div>
   );
 }
