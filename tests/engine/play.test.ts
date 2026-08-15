@@ -14,6 +14,14 @@ describe('PLAY_FIGHTER (§5 gating, resources)', () => {
     expect(ns.zombie.hand.length).toBe(0);
   });
 
+  it('logs the play with a 1-based lane label', () => {
+    const s = baseState();
+    s.zombie.resource = 3;
+    const id = giveCard(s, 'zombie', 'z_conehead');
+    const ns = reduce(s, { type: 'PLAY_FIGHTER', side: 'zombie', instanceId: id, lane: 1 });
+    expect(ns.log.at(-1)).toBe('zombie played Conehead Zombie at L2');
+  });
+
   it('rejects when not enough resource', () => {
     const s = baseState();
     s.zombie.resource = 1;
