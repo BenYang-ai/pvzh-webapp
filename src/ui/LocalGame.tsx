@@ -10,6 +10,16 @@ export function LocalGame({ onExit }: { onExit?: () => void }) {
   const { displayState, fx, animating, caption, apply, skip } = useCombatAnimation(state, rawApply);
   const [seedN, setSeedN] = useState(1);
 
+  // 记住最后一条 lane 说明:回放结束后 state 日志末行是同一条 lane 的战斗行,
+  // 直接回落会“重复播一遍最后 lane”。故战斗结束保持这条说明,只有非战斗动作(打牌/技俩)才换成真实日志末行。
+  const lastCaptionRef = useRef('');
+  useEffect(() => {
+    if (animating && caption) lastCaptionRef.current = caption;
+  }, [animating, caption]);
+  const lastLine = state.log[state.log.length - 1] ?? '';
+  const isCombatLine = /\(L\d/.test(lastLine); // 战斗行格式 "X (L2) hits …";打牌行是 "… at L2"
+  const midMessage = animating && caption ? caption : isCombatLine ? lastCaptionRef.current : lastLine;
+
   function newGame() {
     reset(`game-${seedN + 1}`);
     setSeedN((n) => n + 1);
@@ -26,7 +36,7 @@ export function LocalGame({ onExit }: { onExit?: () => void }) {
         getLog={exportLog}
         onImportLog={importLog}
         fx={fx}
-        lastLog={animating && caption ? caption : state.log[state.log.length - 1]}
+        lastLog={midMessage}
       />
       {/* 事件日志面板(state.log 原文)。用真实 state → 战斗行落地即显。宽屏才显示。 */}
       <LogPanel log={state.log} />
