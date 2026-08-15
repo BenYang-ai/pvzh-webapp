@@ -16,6 +16,9 @@ import {
   trickTargets,
 } from '../engine/selectors.ts';
 import { CardFace } from './CardFace.tsx';
+import type { CombatFx } from './useCombatAnimation.ts';
+
+const NO_FX: CombatFx = { flashLane: null, dying: new Set(), blockedHeroes: new Set(), floats: [] };
 
 type Selection = { side: Side; instanceId: string } | null;
 // 超能力施放中:sp 需目标时进入;friendlyFighterThenLane(Carried Away)先选 fighter(target)再选 lane。
@@ -31,6 +34,7 @@ export interface BoardProps {
   banner?: string | null; // 联网状态提示(连接中/对手回合)
   getLog?: () => string; // 提供 → 显示 "Copy log" 按钮(可重放日志)
   onImportLog?: (json: string) => string | null; // 提供 → 显示 "Load log";返回错误字符串或 null
+  fx?: CombatFx; // 战斗动画叠加特效(见 useCombatAnimation);缺省 = 无
 }
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -59,7 +63,7 @@ function advanceLabel(phase: Phase): string {
   }
 }
 
-export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog, onImportLog }: BoardProps) {
+export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banner, getLog, onImportLog, fx = NO_FX }: BoardProps) {
   const [sel, setSel] = useState<Selection>(null);
   const [spSel, setSpSel] = useState<SPSelection>(null);
 
@@ -169,16 +173,16 @@ export function Board({ state, apply, error, viewSide, onNewGame, onLeave, banne
 
   return (
     <div className="flex aspect-[4/3] max-h-full w-full max-w-[1100px] flex-col gap-1.5 rounded-xl bg-[#16241a] p-3 text-[#e8f0e8] shadow-lg">
-      <HeroBar state={state} side="zombie" active={active === 'zombie'} youAre={viewSide} />
+      <HeroBar state={state} side="zombie" active={active === 'zombie'} youAre={viewSide} fx={fx} />
       <HandRow state={state} side="zombie" sel={sel} viewSide={viewSide} onSelect={selectHandCard} />
 
       <div className="flex flex-1 flex-col justify-center gap-1.5">
-        <LaneRow state={state} side="zombie" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} />
-        <LaneRow state={state} side="plant" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} />
+        <LaneRow state={state} side="zombie" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} fx={fx} />
+        <LaneRow state={state} side="plant" viewSide={viewSide} highlight={highlightLanes} onClick={clickLane} fx={fx} />
       </div>
 
       <HandRow state={state} side="plant" sel={sel} viewSide={viewSide} onSelect={selectHandCard} />
-      <HeroBar state={state} side="plant" active={active === 'plant'} youAre={viewSide} />
+      <HeroBar state={state} side="plant" active={active === 'plant'} youAre={viewSide} fx={fx} />
 
       <SuperpowerControls
         state={state}
@@ -432,24 +436,38 @@ function HeroBar({
   side,
   active,
   youAre,
+  fx = NO_FX,
 }: {
   state: GameState;
   side: Side;
   active: boolean;
   youAre?: Side;
+  fx?: CombatFx;
 }) {
   const p = state[side];
   const label = side === 'zombie' ? 'Zombies' : 'Plants';
   const resIcon = side === 'zombie' ? '🧠' : '☀';
+  const hurt = fx.floats.find((f) => f.heroSide === side); // 本拍脸伤
+  const blocked = fx.blockedHeroes.has(side); // 本拍 Super-Block 格挡
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg px-3 py-1.5 ${
-        active ? 'bg-[#1e3326] ring-1 ring-[#4a8f5a]' : 'bg-[#0f1a12]'
+      className={`relative flex items-center gap-3 rounded-lg px-3 py-1.5 transition-colors ${
+        blocked
+          ? 'bg-sky-800 ring-2 ring-sky-300'
+          : hurt
+            ? 'bg-[#5a2020] ring-2 ring-red-400'
+            : active
+              ? 'bg-[#1e3326] ring-1 ring-[#4a8f5a]'
+              : 'bg-[#0f1a12]'
       }`}
     >
       <span className="font-semibold">{label}</span>
       {youAre === side && <span className="rounded bg-[#2e5a38] px-1.5 text-[10px]">YOU</span>}
-      <span className="rounded bg-[#3a1f1f] px-2 py-0.5 text-sm">HP {p.hero.hp}</span>
+      <span className="relative rounded bg-[#3a1f1f] px-2 py-0.5 text-sm">
+        HP {p.hero.hp}
+        {hurt && <span className="dmg-float text-red-300">-{hurt.amount}</span>}
+        {blocked && <span className="dmg-float text-sky-200">BLOCK</span>}
+      </span>
       <BlockMeter value={p.hero.blockMeter} capped={p.hero.blockTriggers >= state.config.blockMeterMaxTriggers} />
       <span className="ml-auto text-sm">
         {resIcon} {p.resource}
@@ -530,12 +548,14 @@ function LaneRow({
   viewSide,
   highlight,
   onClick,
+  fx = NO_FX,
 }: {
   state: GameState;
   side: Side;
   viewSide?: Side;
   highlight: Set<string>;
   onClick: (side: Side, lane: number) => void;
+  fx?: CombatFx;
 }) {
   return (
     <div className="flex items-stretch gap-1.5">
@@ -545,25 +565,37 @@ function LaneRow({
       {state.lanes.map((ln, l) => {
         const f = ln[side];
         const hot = highlight.has(`${side}:${l}`);
+        const flash = fx.flashLane === l; // 本拍正在结算该 lane → 闪
+        const dying = f != null && fx.dying.has(f.instanceId); // 本拍被摧毁 → 淡出
+        const float = f ? fx.floats.find((fl) => fl.instanceId === f.instanceId) : undefined;
         // 对手的未翻面 gravestone → 面朝下(己方 gravestone 自己可见)
         const maskGravestone = f && viewSide != null && f.owner !== viewSide && f.gravestone;
         return (
           <button
             key={l}
             onClick={() => onClick(side, l)}
-            className={`flex aspect-[3/4] flex-1 items-center justify-center rounded-lg border p-0.5 ${
-              hot ? 'border-yellow-300 bg-[#1e3326] ring-1 ring-yellow-300' : 'border-[#2a3d30] bg-[#111e16]'
+            className={`relative flex aspect-[3/4] flex-1 items-center justify-center rounded-lg border p-0.5 transition-all ${
+              flash
+                ? 'border-amber-300 bg-[#3a3410] ring-2 ring-amber-300'
+                : hot
+                  ? 'border-yellow-300 bg-[#1e3326] ring-1 ring-yellow-300'
+                  : 'border-[#2a3d30] bg-[#111e16]'
             }`}
           >
             {f ? (
               maskGravestone ? (
                 <CardBack />
               ) : (
-                <CardFace card={getCard(f.cardId)} fighter={f} />
+                <div
+                  className={`h-full w-full transition-all duration-300 ${dying ? 'scale-75 opacity-0' : ''}`}
+                >
+                  <CardFace card={getCard(f.cardId)} fighter={f} />
+                </div>
               )
             ) : (
               <span className="text-[10px] text-[#3f5a47]">L{l}</span>
             )}
+            {float && <span className="dmg-float text-red-300">-{float.amount}</span>}
           </button>
         );
       })}
