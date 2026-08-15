@@ -621,9 +621,7 @@ function LaneRow({
                   <CardFace card={getCard(f.cardId)} fighter={f} />
                 </div>
               )
-            ) : (
-              <span className="text-[10px] text-[#3f5a47]">L{l}</span>
-            )}
+            ) : null}
             {float && <span className="dmg-float text-red-300">-{float.amount}</span>}
           </button>
         );

@@ -111,7 +111,7 @@ export function performAttack(
     let destroyed = false;
     const def = state.lanes[lane][enemy];
     state.log.push(
-      `${me} (L${lane}) strikethrough → ${def ? defName(def) : '—'} + ${enemy} hero for ${atk}`,
+      `${me} (L${lane + 1}) strikethrough → ${def ? defName(def) : '—'} + ${enemy} hero for ${atk}`,
     );
     if (def) destroyed = hitFighter(def);
     applyHeroDamage(state, enemy, atk, { isFighterHit: true, lane });
@@ -121,13 +121,13 @@ export function performAttack(
   // 普通:有对方 fighter 打 fighter,否则打 hero
   const def = state.lanes[lane][enemy];
   if (def) {
-    state.log.push(`${me} (L${lane}) hits ${defName(def)} for ${atk}${deadly ? ' (deadly)' : ''}`);
+    state.log.push(`${me} (L${lane + 1}) hits ${defName(def)} for ${atk}${deadly ? ' (deadly)' : ''}`);
     return { destroyedDefender: hitFighter(def) };
   }
   // Bullseye:命中 hero 时无视 Super-Block Meter(不充能、不格挡);普通攻击照常充能。
   const bullseye = hasKeyword(attacker.keywords, 'bullseye');
   state.log.push(
-    `${me} (L${lane}) hits ${enemy} hero for ${atk}${bullseye ? ' (bullseye, no block)' : ''}`,
+    `${me} (L${lane + 1}) hits ${enemy} hero for ${atk}${bullseye ? ' (bullseye, no block)' : ''}`,
   );
   applyHeroDamage(state, enemy, atk, { isFighterHit: !bullseye, lane });
   return { destroyedDefender: false };
@@ -195,12 +195,12 @@ function resolveLane(state: GameState, lane: number, config: GameConfig): boolea
 
   // STEP 3 — 统一结算死亡
   if (P && (P.health <= 0 || plantDestroyed)) {
-    state.log.push(`${getCard(P.cardId).name} destroyed (L${lane})`);
+    state.log.push(`${getCard(P.cardId).name} destroyed (L${lane + 1})`);
     (state.combatEvents ??= []).push({ kind: 'destroy', lane, side: 'plant', instanceId: P.instanceId });
     removeFighter(state, lane, 'plant');
   }
   if (Z && (Z.health <= 0 || zombieDestroyed)) {
-    state.log.push(`${getCard(Z.cardId).name} destroyed (L${lane})`);
+    state.log.push(`${getCard(Z.cardId).name} destroyed (L${lane + 1})`);
     (state.combatEvents ??= []).push({ kind: 'destroy', lane, side: 'zombie', instanceId: Z.instanceId });
     removeFighter(state, lane, 'zombie');
   }
@@ -208,7 +208,7 @@ function resolveLane(state: GameState, lane: number, config: GameConfig): boolea
   // STEP 4 — Frenzy(僵尸专属):存活 + 本 lane 摧毁了植物 → bonus attack 打脸
   const zNow = state.lanes[lane].zombie;
   if (zNow && hasKeyword(zNow.keywords, 'frenzy') && plantDestroyed && zActs) {
-    state.log.push(`${getCard(zNow.cardId).name} frenzy → bonus attack (L${lane})`);
+    state.log.push(`${getCard(zNow.cardId).name} frenzy → bonus attack (L${lane + 1})`);
     (state.combatEvents ??= []).push({ kind: 'frenzy', lane, instanceId: zNow.instanceId });
     performAttack(state, 'zombie', lane, config); // lane 已清空 → 直击 plantHero
     if (checkGameOver(state)) return true;
