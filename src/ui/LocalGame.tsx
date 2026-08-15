@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Board } from './Board.tsx';
 import { useGame } from './useGame.ts';
 import { useCombatAnimation } from './useCombatAnimation.ts';
@@ -16,7 +16,7 @@ export function LocalGame({ onExit }: { onExit?: () => void }) {
   }
 
   return (
-    <div className="relative flex h-full w-full items-center justify-center">
+    <div className="relative flex h-full w-full items-center justify-center gap-2 p-2">
       <Board
         state={displayState}
         apply={apply}
@@ -27,6 +27,8 @@ export function LocalGame({ onExit }: { onExit?: () => void }) {
         onImportLog={importLog}
         fx={fx}
       />
+      {/* 事件日志面板(state.log 原文)。用真实 state → 战斗行落地即显。宽屏才显示。 */}
+      <LogPanel log={state.log} />
       {/* 回放中:全屏透明层拦截点击 → 快进到终局(Ben:tap to skip)。 */}
       {animating && (
         <button
@@ -35,6 +37,40 @@ export function LocalGame({ onExit }: { onExit?: () => void }) {
           className="absolute inset-0 z-40 cursor-pointer bg-transparent"
         />
       )}
+    </div>
+  );
+}
+
+// 滚动事件日志:最新一行在底部,新行自动滚到底。
+function LogPanel({ log }: { log: string[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [log.length]);
+
+  return (
+    <div className="hidden aspect-[3/4] max-h-full w-44 shrink-0 flex-col rounded-xl bg-[#0f1a12] p-2 text-[#c8d8c8] shadow-lg lg:flex">
+      <div className="mb-1 shrink-0 px-1 text-xs font-semibold text-[#8fae95]">Log</div>
+      <div ref={ref} className="flex-1 space-y-0.5 overflow-y-auto px-1 font-mono text-[10px] leading-tight">
+        {log.length === 0 && <span className="text-[#3f5a47]">— no events yet —</span>}
+        {log.map((line, i) => (
+          <div
+            key={i}
+            className={
+              line.startsWith('—')
+                ? 'mt-1 text-[#6f9a76] font-semibold'
+                : line.includes('Super-Block')
+                  ? 'text-sky-300'
+                  : line.includes('destroyed')
+                    ? 'text-red-300'
+                    : ''
+            }
+          >
+            {line}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
