@@ -29,6 +29,19 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 ## Bug-fix workflow
 Invoke the **`pvzh-debug`** project skill (`.claude/skills/pvzh-debug/SKILL.md`) when Ben pastes a replay log — it encodes the whole loop (reproduce → verify real bug → fix → regression test → PR/squash-merge → offer Load-log resume).
 
+## Intent-first landing + New-game side choice (2026-08-16)
+- **Landing menu (`App.tsx`) rebuilt intent-first.** Menu fetches `fetchRoomMeta(FAMILY_ROOM)` on
+  mount and shows: **Resume game** (only when a game is in progress — `exists && turn>=1 &&
+  winner==null` — with a `{plant} 🌱 vs {zombie} 🧟 · turn N` subtitle) · **New online game** ·
+  **Local game**. `Screen` now carries `{ kind:'lobby'; mode:'new'|'resume' }`.
+- **`Lobby.tsx` split by `mode` prop.** `mode='new'` = a clean name+**side** picker → `startNew`:
+  `createRoom(fresh, pick, rev+1)` then **`resetSeats(room, pick, token, name)`** (sets my chosen
+  side's token, **nulls the other seat**, names={mine}) so you can pick a *different* side for the
+  new game without "one player holding both seats"; the opponent re-joins the freed side. `mode=
+  'resume'` = the join / reconnect / take-over flow (no New-game button here anymore).
+- **Reword:** all user-facing "Play over WiFi" → **"Play over Internet"** (it routes through
+  Supabase, not LAN). `NETWORKING.md` dev doc keeps its WiFi test-plan wording.
+
 ## DB-authoritative seats + explicit lobby (2026-08-16)
 - **Bug fixed: "myself twice."** Old lobby trusted per-device `savedSeat` localStorage over the
   DB (`Lobby.tsx:108` `saved ?? other(hostSide)`), so a stale saved seat matching the host's side

@@ -94,6 +94,20 @@ export async function takeoverSeat(code: string, side: Side, token: string, name
   if (error) throw new Error(`takeover seat failed: ${error.message}`);
 }
 
+// 重开一局的座位重置(改边开新局用):清空两方,只把本设备占到 mySide,名字只留本方。
+// 与 createRoom(写 state/rev)配对:先 createRoom(fresh, mySide, rev+1) 再 resetSeats。
+// 对端旧令牌被清 → 其大厅显示未入座,重开后自行加入另一方(避免改边后「一人占两座」)。
+export async function resetSeats(code: string, mySide: Side, token: string, name: string): Promise<void> {
+  const cols =
+    mySide === 'plant' ? { plant_token: token, zombie_token: null } : { plant_token: null, zombie_token: token };
+  const names: PlayerNames = { [mySide]: name };
+  const { error } = await getClient()
+    .from(TABLE)
+    .update({ ...cols, names })
+    .eq('id', code);
+  if (error) throw new Error(`reset seats failed: ${error.message}`);
+}
+
 // 释放座位(离开时清本设备令牌,仅当该座确是本 token)。让位空出供他人加入。
 export async function releaseSeat(code: string, side: Side, token: string): Promise<void> {
   const col = tokenCol(side);
