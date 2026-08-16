@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import type { Side } from '../engine/types.ts';
 import { activeSide } from '../engine/selectors.ts';
 import { Board } from './Board.tsx';
-import { savedName } from '../net/access.ts';
+import { savedName, deviceToken } from '../net/access.ts';
+import { releaseSeat } from '../net/room.ts';
 import { useNetworkGame } from './useNetworkGame.ts';
 import { useNetCombatAnimation } from './useNetCombatAnimation.ts';
 
@@ -10,6 +11,11 @@ const other = (s: Side): Side => (s === 'plant' ? 'zombie' : 'plant');
 
 // 联网单侧视角。seat = 本设备执方。战斗走 useNetCombatAnimation 逐拍回放(与本地一致,监听 state 变化触发)。
 export function NetworkGame({ code, seat, onLeave }: { code: string; seat: Side; onLeave: () => void }) {
+  // 离开时释放本座(清本设备令牌),让座位空出供他人加入。best-effort,不阻塞返回。
+  const leave = () => {
+    releaseSeat(code, seat, deviceToken()).catch(() => {});
+    onLeave();
+  };
   const { state, names, apply, newGame, error } = useNetworkGame(code);
   const { displayState, fx, animating, caption, skip } = useNetCombatAnimation(state);
 
@@ -24,7 +30,7 @@ export function NetworkGame({ code, seat, onLeave }: { code: string; seat: Side;
       <div className="flex flex-col items-center gap-3 text-[#e8f0e8]">
         <p>Connecting to room “{code}”…</p>
         {error && <p className="text-red-300">⚠ {error}</p>}
-        <button onClick={onLeave} className="rounded-md bg-[#3a3a4a] px-3 py-1 hover:bg-[#4a4a5a]">
+        <button onClick={leave} className="rounded-md bg-[#3a3a4a] px-3 py-1 hover:bg-[#4a4a5a]">
           Back
         </button>
       </div>
@@ -60,7 +66,7 @@ export function NetworkGame({ code, seat, onLeave }: { code: string; seat: Side;
         viewSide={seat}
         names={names}
         onNewGame={onNewGame}
-        onLeave={onLeave}
+        onLeave={leave}
         banner={banner}
         copyState={isBen ? () => JSON.stringify(state, null, 2) : undefined} // 权威 state → net debug,仅 Ben 可见
         fx={fx}

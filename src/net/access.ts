@@ -46,6 +46,30 @@ export function saveSeat(room: string, side: Side): void {
   }
 }
 
+// —— 本设备身份令牌(座位归属的真正依据;名字仅显示)——
+// 与房间无关:一台设备一个 token,存 localStorage。DB 里 {side}_token === 本 token → 本设备占该座。
+const DEVICE_KEY = 'pvzh.device';
+
+export function deviceToken(): string {
+  try {
+    let t = localStorage.getItem(DEVICE_KEY);
+    if (!t) {
+      t = crypto.randomUUID();
+      localStorage.setItem(DEVICE_KEY, t);
+    }
+    return t;
+  } catch {
+    // 隐私模式无 localStorage:退化到本次会话内稳定的临时 token(刷新即换,可接受)。
+    return sessionToken();
+  }
+}
+
+let SESSION_TOKEN: string | null = null;
+function sessionToken(): string {
+  if (!SESSION_TOKEN) SESSION_TOKEN = crypto.randomUUID();
+  return SESSION_TOKEN;
+}
+
 // —— 玩家名字(显示用,引擎不认)——
 export const PLAYER_NAMES = ['Ben', 'Miles', 'Leo'] as const;
 

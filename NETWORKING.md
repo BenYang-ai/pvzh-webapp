@@ -21,12 +21,16 @@ create table if not exists public.games (
   rev bigint not null default 0,
   state jsonb not null,
   updated_at timestamptz not null default now(),
-  host_side text,  -- 建房方执方(第二人自动分到另一边);2026-08-15 席位大厅新增
-  names jsonb not null default '{}'::jsonb  -- 双方显示名 {plant?,zombie?};2026-08-15 新增
+  host_side text,  -- 建房方执方(棋盘朝向);2026-08-15 席位大厅新增
+  names jsonb not null default '{}'::jsonb,  -- 双方显示名 {plant?,zombie?};2026-08-15 新增
+  plant_token text,   -- 占 🌱 座的设备令牌(null=空位);2026-08-16 DB 席位权威
+  zombie_token text   -- 占 🧟 座的设备令牌(null=空位);2026-08-16 DB 席位权威
 );
 -- 老库补列(表已存在时):
 alter table public.games add column if not exists host_side text;
 alter table public.games add column if not exists names jsonb not null default '{}'::jsonb;
+alter table public.games add column if not exists plant_token text;
+alter table public.games add column if not exists zombie_token text;
 
 -- realtime broadcast of row changes
 alter publication supabase_realtime add table public.games;
@@ -65,7 +69,31 @@ Superpowers charge via the Super-Block Meter (faithful mode) exactly as in local
 Add the same two env vars in **Vercel → Project → Settings → Environment Variables**, then
 redeploy. Until they're set in Vercel, the deployed site shows the local hot-seat only.
 
+## Seat model (2026-08-16 — DB is the seat authority)
+Seat ownership lives in the `games` row, **not** in each device's localStorage (the old
+localStorage-seat design caused a "myself twice" collision when a stale saved seat matched
+the host's side). Each device mints a `crypto.randomUUID()` **device token** (localStorage
+`pvzh.device`) — that token, not the display name, owns a seat.
+
+- **Claim** (`claimSeat`): atomic conditional update — `set {side}_token=me where token is
+  null or already = me`. Single statement → Postgres row-locks, so two racers can't both take
+  the same open seat; the loser gets an empty result and is told "seat just taken."
+- **Reconnect**: on lobby open we read the row; if `{side}_token === my token` I'm auto-seated
+  back on that side (`mySeat` in `src/net/seat.ts`).
+- **Takeover** (`takeoverSeat`): unconditional overwrite, only after an explicit confirm — used
+  when both seats are full and a new device wants in (the old holder drops).
+- **Release** (`releaseSeat`): clears my token on Back, freeing the seat.
+- **New game from the lobby** bumps `rev` to `currentRev+1` (never resets to 0) so a peer already
+  in-game — whose guard ignores `rev ≤ applied` — still adopts the reset. `createRoom(…, rev)`.
+
+The lobby (`src/ui/Lobby.tsx`) is explicit: it shows occupancy (who's on each side), whether a
+game is in progress (turn N) / finished / waiting, and offers Join & resume · Start new · Take
+over accordingly. Names never silently default — you must pick one, and a name already used by
+the other seated player is blocked.
+
 ## Notes / limits (v1)
 - Turn-based, so only the active side pushes; last-writer-wins with an `rev` guard is enough.
-- Room row persists — re-creating the same code overwrites it (fresh game).
-- No auth/seat-locking: both devices trust each other to pick opposite sides (family game).
+- Room row persists — re-creating the same code overwrites it (fresh game). **One fixed room**
+  (口令 slug) + upsert on the `id` PK → the `games` table stays at a single row no matter how
+  many games are played; no cleanup needed.
+- Seat-locking via device tokens (above); client-side gate is obscurity, not real auth (family game).

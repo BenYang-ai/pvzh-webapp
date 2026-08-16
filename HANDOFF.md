@@ -29,6 +29,25 @@ Vite 6 + React 19 + TS (strict) + Tailwind v4 + Vitest. Node 22. Pure-reducer en
 ## Bug-fix workflow
 Invoke the **`pvzh-debug`** project skill (`.claude/skills/pvzh-debug/SKILL.md`) when Ben pastes a replay log — it encodes the whole loop (reproduce → verify real bug → fix → regression test → PR/squash-merge → offer Load-log resume).
 
+## DB-authoritative seats + explicit lobby (2026-08-16)
+- **Bug fixed: "myself twice."** Old lobby trusted per-device `savedSeat` localStorage over the
+  DB (`Lobby.tsx:108` `saved ?? other(hostSide)`), so a stale saved seat matching the host's side
+  put both players on one side. Also the name defaulted to `PLAYER_NAMES[0]`='Ben' silently.
+- **Seat authority moved into the DB.** New `games` cols `plant_token` / `zombie_token` (nullable;
+  **run the `alter table … add column` in NETWORKING.md §2 before/with deploy**). Each device mints a
+  `crypto.randomUUID()` **device token** (`deviceToken()`, localStorage `pvzh.device`) — that token,
+  not the name, owns a seat. Pure seat logic in **`src/net/seat.ts`** (`mySeat`/`openSeats`/`isFull`/
+  `nameBlocked`), unit-tested `tests/net/seat.test.ts`.
+- **`room.ts`:** `fetchRoomMeta` now returns `{exists,hostSide,names,claims,turn,winner,rev}`.
+  `claimSeat` = atomic conditional update (`.or('{col}.is.null,{col}.eq.'+token).select()` → empty =
+  seat taken). `takeoverSeat` = unconditional (after confirm). `releaseSeat` clears my token on Back.
+  `createRoom(…, rev)` takes an optional rev so lobby "new game" writes `rev+1` (not 0).
+- **`Lobby.tsx` rewritten** (occupancy-aware): shows who's on each side + status (in progress turn N /
+  finished / waiting); flows = **Join & resume** (claim open seat) · **Start new** (confirm, resets
+  board keeps seats) · **Take over** (both full → confirm → drop old holder) · **Resume** (my token
+  already holds a seat). Name never auto-defaults; a name held by the other seat is blocked.
+  `NetworkGame` calls `releaseSeat` on leave. `savedSeat` no longer used as seat authority.
+
 ## Networking LIVE + access gate + seat lobby (2026-08-15)
 - **Supabase networking is now live** (creds in Vercel; WiFi 2-device play confirmed). Table `games` cols: `id, rev, state jsonb, updated_at, host_side text`. **Vercel↔Supabase integration vars lack the `VITE_` prefix Vite needs — the two `VITE_SUPABASE_*` vars were added manually.**
 - **Realtime is best-effort (drops events).** `useNetworkGame` self-heals: 1s reconcile poll (`room.ts` `fetchRev` cheap rev-only select → full `fetchRoom` only when rev jumped) + refetch on `visibilitychange` + on channel resubscribe (`subscribeRoom` `onSubscribed`). Fixed the "opponent sees the fight result one action late" bug (engine already resolves the whole fight in the end-tricks action; the lag was pure dropped-event staleness). PR #33.
