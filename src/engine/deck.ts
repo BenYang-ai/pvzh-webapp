@@ -1,23 +1,6 @@
 import type { Card, Fighter, InstanceRef, Side } from './types.ts';
 import { getCard, decklistFor } from './cardpool.ts';
-
-// 解析 "armored:1" → { name:'armored', value:1 }
-export function parseKeyword(kw: string): { name: string; value: number | null } {
-  const [name, val] = kw.split(':');
-  return { name, value: val === undefined ? null : Number(val) };
-}
-
-export function keywordValue(keywords: string[], name: string): number | null {
-  for (const kw of keywords) {
-    const p = parseKeyword(kw);
-    if (p.name === name) return p.value ?? 0;
-  }
-  return null;
-}
-
-export function hasKeyword(keywords: string[], name: string): boolean {
-  return keywords.some((kw) => parseKeyword(kw).name === name);
-}
+import { hasKeyword } from './keywords.ts';
 
 // 按 decklist 展开成实例牌库(未洗)。instanceId 用递增计数器,确定性。
 export function buildDeck(side: Side, startCounter: number): { deck: InstanceRef[]; counter: number } {

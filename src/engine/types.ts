@@ -1,5 +1,6 @@
 // 规则引擎类型定义。引擎 = 纯函数,无 React/网络/随机副作用(§3)。
 // 所有随机走 state 内的 seeded RNG(见 rng.ts),保证 determinism。
+import type { Keyword } from './keywords.ts';
 
 export type Side = 'plant' | 'zombie';
 export type Faction = Side;
@@ -21,9 +22,7 @@ export type TargetSpec =
   | 'none'
   | 'friendlyFighter'
   | 'enemyFighter'
-  | 'anyFighter'
-  | 'lane'
-  | 'enemyFighterThenLane'; // Carried Away:fighter + lane 两段
+  | 'anyFighter';
 
 // TargetRef:effect 内如何定位目标。
 // 'chosen' = 打出此卡时玩家选中的目标(action.target)。
@@ -43,7 +42,7 @@ export type Effect =
   | { kind: 'bounce'; target: TargetRef }
   | { kind: 'freeze'; target: TargetRef }
   | { kind: 'shield'; target: TargetRef } // cantBeHurt this turn(§7 讨论新增)
-  | { kind: 'giveKeywordAll'; keyword: string; side: 'friendly' | 'enemy' }
+  | { kind: 'giveKeywordAll'; keyword: Keyword; side: 'friendly' | 'enemy' }
   | { kind: 'move'; target: TargetRef; toLane: number }
   | { kind: 'bonusAttack'; target: TargetRef };
 
