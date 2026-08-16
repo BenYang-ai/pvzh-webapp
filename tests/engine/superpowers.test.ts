@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { reduce } from '../../src/engine/reduce.ts';
 import { grantSuperpower } from '../../src/engine/superpowers.ts';
-import { hasKeyword } from '../../src/engine/deck.ts';
+import { hasKeyword } from '../../src/engine/keywords.ts';
 import { baseState, placeFighter } from './helpers.ts';
 
 // 便捷:给 hero 装上待用超能力

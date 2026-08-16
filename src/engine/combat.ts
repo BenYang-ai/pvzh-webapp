@@ -1,7 +1,7 @@
 import type { GameConfig } from '../config.ts';
 import type { Fighter, GameState, Side } from './types.ts';
 import { getCard } from './cardpool.ts';
-import { hasKeyword, keywordValue } from './deck.ts';
+import { hasKeyword, keywordValue } from './keywords.ts';
 import { applyEffects, otherSide, player, removeFighter } from './effects.ts';
 import { nextInt } from './rng.ts';
 import { grantSuperpower } from './superpowers.ts';

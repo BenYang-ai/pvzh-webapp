@@ -3,18 +3,25 @@ import type {
   GameState,
   HeroState,
   InstanceRef,
-  Phase,
   PlayerState,
   Side,
 } from './types.ts';
 import { DEFAULT_CONFIG, type GameConfig } from '../config.ts';
 import { getCard, getSuperpower } from './cardpool.ts';
-import { buildDeck, makeFighter, hasKeyword } from './deck.ts';
+import { buildDeck, makeFighter } from './deck.ts';
 import { seedFromString, shuffle } from './rng.ts';
-import { applyEffects, drawCards, otherSide, player } from './effects.ts';
+import { applyEffects, drawCards, player } from './effects.ts';
 import { resolveFight, revealGravestones } from './combat.ts';
 import { applySuperpower, grantSuperpower } from './superpowers.ts';
-import type { Fighter, Superpower } from './types.ts';
+import {
+  canPlayFighter,
+  canPlayTrick,
+  phaseOwner,
+  superpowerCostFor,
+  superpowerWindow,
+  validateDestLane,
+  validateTarget,
+} from './legality.ts';
 
 export class IllegalActionError extends Error {}
 
@@ -109,29 +116,6 @@ function startTurn(state: GameState, config: GameConfig, turn: number): void {
   state.phase = 'ZOMBIE_PLAY';
 }
 
-// —— phase 归属 ——
-function phaseOwner(phase: Phase): Side | null {
-  switch (phase) {
-    case 'ZOMBIE_PLAY':
-    case 'ZOMBIE_TRICKS':
-      return 'zombie';
-    case 'PLANT_PLAY':
-      return 'plant';
-    default:
-      return null; // FIGHT / GAME_OVER 无归属
-  }
-}
-
-function canPlayFighter(side: Side, phase: Phase): boolean {
-  return (side === 'zombie' && phase === 'ZOMBIE_PLAY') || (side === 'plant' && phase === 'PLANT_PLAY');
-}
-
-function canPlayTrick(side: Side, phase: Phase): boolean {
-  if (side === 'plant') return phase === 'PLANT_PLAY';
-  // 僵尸只能在 ZOMBIE_TRICKS 出 trick(不能在打牌阶段 ZOMBIE_PLAY 出)
-  return phase === 'ZOMBIE_TRICKS';
-}
-
 function endTurn(state: GameState, config: GameConfig): void {
   resolveFight(state, config); // 命中 hero 致死时内部已设 winner + GAME_OVER
   if (state.winner) return;
@@ -183,7 +167,7 @@ function takeFromHand(p: PlayerState, instanceId: string): InstanceRef {
 
 function playFighter(state: GameState, action: Extract<GameAction, { type: 'PLAY_FIGHTER' }>): void {
   const { side, instanceId, lane } = action;
-  if (!canPlayFighter(side, state.phase)) throw new IllegalActionError(`cannot play fighter in ${state.phase}`);
+  if (!canPlayFighter(state, side)) throw new IllegalActionError(`cannot play fighter in ${state.phase}`);
   if (lane < 0 || lane >= state.lanes.length) throw new IllegalActionError(`bad lane ${lane}`);
   if (state.lanes[lane][side]) throw new IllegalActionError(`lane ${lane} occupied`);
 
@@ -209,7 +193,7 @@ function playFighter(state: GameState, action: Extract<GameAction, { type: 'PLAY
 
 function playTrick(state: GameState, action: Extract<GameAction, { type: 'PLAY_TRICK' }>): void {
   const { side, instanceId, target } = action;
-  if (!canPlayTrick(side, state.phase)) throw new IllegalActionError(`cannot play trick in ${state.phase}`);
+  if (!canPlayTrick(state, side)) throw new IllegalActionError(`cannot play trick in ${state.phase}`);
 
   const p = player(state, side);
   const ref = p.hand.find((r) => r.instanceId === instanceId);
@@ -219,31 +203,13 @@ function playTrick(state: GameState, action: Extract<GameAction, { type: 'PLAY_T
   if (card.faction !== side) throw new IllegalActionError(`wrong faction`);
   if (card.cost > p.resource) throw new IllegalActionError(`not enough resource (${p.resource}/${card.cost})`);
 
-  validateTrickTarget(state, side, card.targeting ?? 'none', target);
+  const reason = validateTarget(state, side, card.targeting ?? 'none', target);
+  if (reason) throw new IllegalActionError(reason);
 
   takeFromHand(p, instanceId);
   p.resource -= card.cost;
   state.log.push(`${side} played ${card.name}${target ? ` at L${target.lane + 1}` : ''}`);
   if (card.onPlay) applyEffects(state, card.onPlay, { caster: side, chosen: target });
-}
-
-function validateTrickTarget(
-  state: GameState,
-  side: Side,
-  spec: string,
-  target?: { lane: number; side: Side },
-): void {
-  if (spec === 'none') return;
-  if (!target) throw new IllegalActionError(`target required for ${spec}`);
-  const f = state.lanes[target.lane]?.[target.side];
-  if (!f) throw new IllegalActionError(`no fighter at target`);
-  // untrickable:双方 trick 均不可指向(§7)
-  if (hasKeyword(f.keywords, 'untrickable')) throw new IllegalActionError(`target is untrickable`);
-  // gravestone 未翻面:不可被任何一方指向(§7)
-  if (f.gravestone) throw new IllegalActionError(`target is a hidden gravestone`);
-
-  if (spec === 'friendlyFighter' && target.side !== side) throw new IllegalActionError(`must target friendly`);
-  if (spec === 'enemyFighter' && target.side !== otherSide(side)) throw new IllegalActionError(`must target enemy`);
 }
 
 // —— 超能力(§8)——
@@ -253,84 +219,39 @@ function playSuperpower(
   config: GameConfig,
 ): void {
   const { side } = action;
-  // 超能力当作 trick 卡。SUPERPOWER_INTERRUPT:仅队首一方可即时打出(战斗中断窗口)。
-  const head = state.phase === 'SUPERPOWER_INTERRUPT' ? state.interrupts?.[0] : undefined;
-  const inInterrupt = head?.side === side;
-  // 中断窗口外则视同 trick:僵尸只能在 ZOMBIE_TRICKS 打(与 PR#7 分歧一致),植物在 PLANT_PLAY 打。
-  const okPhase = inInterrupt || canPlayTrick(side, state.phase);
-  if (!okPhase) throw new IllegalActionError(`cannot play superpower in ${state.phase}`);
+  // 超能力当作 trick 卡。窗口由 legality 统一判定:interrupt(战斗中断,仅队首一方,免费打「刚授予那张」)
+  // / trick(本方 trick 窗口,1 费打任意持有)/ null(不可打)。
+  const w = superpowerWindow(state, side);
+  if (w.kind === null) throw new IllegalActionError(`cannot play superpower in ${state.phase}`);
 
   const p = player(state, side);
   const hero = p.hero;
   if (!hero.readySuperpowers.length) throw new IllegalActionError('no superpower ready');
-  // 中断窗口:只有“本回合刚授予”的那张(head.spId)可即时免费打出;旧超能力不可在战斗中打(留到本方 trick 窗口 1 费打)。
-  // 窗口外(trick):未指定则默认打出最近授予的(队尾),否则按 id 从列表取。
-  const spId = inInterrupt
-    ? head!.spId ?? action.superpowerId ?? hero.readySuperpowers[hero.readySuperpowers.length - 1]
-    : action.superpowerId ?? hero.readySuperpowers[hero.readySuperpowers.length - 1];
-  if (inInterrupt && head!.spId !== undefined && spId !== head!.spId)
+  const last = hero.readySuperpowers[hero.readySuperpowers.length - 1];
+  // 中断窗口:只有“本回合刚授予”那张(w.freeId)可即时免费打出;旧超能力不可在战斗中打(留到本方 trick 窗口)。
+  // trick 窗口:未指定则默认最近授予(队尾),否则按 id 取。
+  const spId = w.kind === 'interrupt' ? w.freeId ?? action.superpowerId ?? last : action.superpowerId ?? last;
+  if (w.kind === 'interrupt' && w.freeId !== undefined && spId !== w.freeId)
     throw new IllegalActionError('only the just-charged superpower is free this fight; play others in your trick phase');
   const idx = hero.readySuperpowers.lastIndexOf(spId);
   if (idx === -1) throw new IllegalActionError(`superpower not ready: ${spId}`);
   const sp = getSuperpower(spId);
   if (sp.faction !== side) throw new IllegalActionError('wrong faction superpower');
 
-  // 花费:中断窗口内免费(Super-Block 奖励),之后当作 1 费 trick 从“手牌”打出。
-  const cost = inInterrupt ? 0 : config.superpowerHandCost ?? 1;
+  // 花费:中断窗口内「刚授予那张」免费(Super-Block 奖励),否则当作 trick 从“手牌”打出(默认 1 费)。
+  const cost = superpowerCostFor(state, side, spId);
   if (cost > p.resource) throw new IllegalActionError(`not enough resource (${p.resource}/${cost})`);
 
-  validateSuperpowerTarget(state, side, sp, action);
+  const reason =
+    validateTarget(state, side, sp.targeting, action.target, { minAttack: sp.minAttack }) ??
+    validateDestLane(state, side, sp.targeting, action.toLane);
+  if (reason) throw new IllegalActionError(reason);
+
   hero.readySuperpowers.splice(idx, 1);
   p.resource -= cost;
   applySuperpower(state, side, sp, action);
 
-  if (inInterrupt) finishInterruptStep(state, config); // 打出后续算战斗
-}
-
-function requireTargetable(state: GameState, t: { lane: number; side: Side }): Fighter {
-  const f = state.lanes[t.lane]?.[t.side];
-  if (!f) throw new IllegalActionError('no fighter at target');
-  if (f.gravestone) throw new IllegalActionError('target is a hidden gravestone'); // 未翻面不可指向(§7)
-  return f; // untrickable 检查在 enemyFighter 分支(仅挡敌方指向,友方增益不受限)
-}
-
-function validateSuperpowerTarget(
-  state: GameState,
-  side: Side,
-  sp: Superpower,
-  action: Extract<GameAction, { type: 'PLAY_SUPERPOWER' }>,
-): void {
-  const enemy = otherSide(side);
-  switch (sp.targeting) {
-    case 'none':
-      return;
-    case 'friendlyFighter': {
-      const t = action.target;
-      if (!t || t.side !== side) throw new IllegalActionError('must target a friendly fighter');
-      requireTargetable(state, t);
-      return;
-    }
-    case 'enemyFighter': {
-      const t = action.target;
-      if (!t || t.side !== enemy) throw new IllegalActionError('must target an enemy fighter');
-      const f = requireTargetable(state, t);
-      // untrickable:敌方对其免疫 trick 与超能力(§7)
-      if (hasKeyword(f.keywords, 'untrickable')) throw new IllegalActionError('target is untrickable');
-      if (sp.minAttack !== undefined && f.attack < sp.minAttack)
-        throw new IllegalActionError(`target attack must be ≥ ${sp.minAttack}`);
-      return;
-    }
-    case 'friendlyFighterThenLane': {
-      const t = action.target;
-      if (!t || t.side !== side) throw new IllegalActionError('must target a friendly fighter');
-      requireTargetable(state, t);
-      const toLane = action.toLane;
-      if (toLane === undefined) throw new IllegalActionError('destination lane required');
-      if (toLane < 0 || toLane >= state.lanes.length) throw new IllegalActionError(`bad lane ${toLane}`);
-      if (state.lanes[toLane][side]) throw new IllegalActionError(`destination lane ${toLane} occupied`);
-      return;
-    }
-  }
+  if (w.kind === 'interrupt') finishInterruptStep(state, config); // 打出后续算战斗
 }
 
 function pickSuperpower(state: GameState, action: Extract<GameAction, { type: 'PICK_SUPERPOWER' }>): void {

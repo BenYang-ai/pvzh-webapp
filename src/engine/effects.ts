@@ -1,6 +1,6 @@
 import type { Effect, Fighter, GameState, Side, TargetRef } from './types.ts';
 import { getCard } from './cardpool.ts';
-import { hasKeyword } from './deck.ts';
+import { hasKeyword } from './keywords.ts';
 import { nextInt } from './rng.ts';
 import { bonusAttackAt } from './combat.ts';
 

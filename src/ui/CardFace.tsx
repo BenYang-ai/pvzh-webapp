@@ -1,5 +1,5 @@
 import type { Card, Fighter, Superpower } from '../engine/types.ts';
-import { parseKeyword } from '../engine/deck.ts';
+import { parseKeyword } from '../engine/keywords.ts';
 
 export const KEYWORD_ICON: Record<string, string> = {
   armored: '🛡',
